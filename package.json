@@ -1,0 +1,81 @@
+{
+  "name": "trae-usage-monitor",
+  "displayName": "Trae Usage Monitor",
+  "description": "Monitor Trae AI usage statistics in real-time",
+  "version": "1.0.0",
+  "publisher": "whyuds",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/whyuds/TraeUsage.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "traeUsage.refresh",
+        "title": "Refresh Usage Data",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "traeUsage.updateToken",
+        "title": "Update Auth Token"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "traeUsageView",
+          "name": "Trae Usage Monitor",
+          "when": "true"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "traeUsage.refresh",
+          "when": "view == traeUsageView",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Trae Usage Monitor",
+      "properties": {
+        "traeUsage.authToken": {
+          "type": "string",
+          "default": "",
+          "description": "Trae AI authentication token"
+        },
+        "traeUsage.refreshInterval": {
+          "type": "number",
+          "default": 5,
+          "description": "Refresh interval in minutes"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "18.x",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.7.0"
+  }
+}
