@@ -136,9 +136,13 @@ class TraeUsageProvider {
         }
         catch (error) {
             console.error('获取使用量数据失败:', error);
-            // 如果是手动刷新失败，通知用户
+            // 检查是否为超时错误
+            const isTimeoutError = error && (error.code === 'ECONNABORTED' || error.message?.includes('timeout'));
+            // 如果是手动刷新失败，只有非超时错误才通知用户
             if (this.isManualRefresh) {
-                vscode.window.showErrorMessage(`获取使用量数据失败: ${error}`);
+                if (!isTimeoutError) {
+                    vscode.window.showErrorMessage(`获取使用量数据失败: ${error}`);
+                }
                 this.isManualRefresh = false;
                 return;
             }
@@ -212,8 +216,6 @@ function activate(context) {
         }
     });
     context.subscriptions.push(refreshCommand, updateTokenCommand, provider);
-    // 显示激活消息
-    vscode.window.showInformationMessage('Trae Usage Monitor已激活');
 }
 function deactivate() { }
 //# sourceMappingURL=extension.js.map

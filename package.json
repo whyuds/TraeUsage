@@ -1,8 +1,8 @@
 {
   "name": "trae-usage-monitor",
-  "displayName": "Trae Usage Monitor",
+  "displayName": "Trae Usage",
   "description": "Monitor Trae AI usage statistics in real-time",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "whyuds",
   "repository": {
     "type": "git",
@@ -28,14 +28,15 @@
       },
       {
         "command": "traeUsage.updateToken",
-        "title": "Update Auth Token"
+        "title": "设置Token",
+        "icon": "$(gear)"
       }
     ],
     "views": {
       "explorer": [
         {
           "id": "traeUsageView",
-          "name": "Trae Usage Monitor",
+          "name": "Trae Usage",
           "when": "true"
         }
       ]
@@ -46,11 +47,16 @@
           "command": "traeUsage.refresh",
           "when": "view == traeUsageView",
           "group": "navigation"
+        },
+        {
+          "command": "traeUsage.updateToken",
+          "when": "view == traeUsageView",
+          "group": "navigation"
         }
       ]
     },
     "configuration": {
-      "title": "Trae Usage Monitor",
+      "title": "Trae Usage",
       "properties": {
         "traeUsage.authToken": {
           "type": "string",
