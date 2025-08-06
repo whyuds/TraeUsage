@@ -17,16 +17,25 @@
 
 Trae的应用市场搜索Trae Usage
 
-### 2  获取认证Token
-1. 在Trae.ai查看Usage时通过Chrome控制台找到API-/ide_user_pay_status并复制其中的authorization请求头参数
-2. Chrome应用商店搜索Trae Usage Token Extractor并安装，官网查看一次Usage后，点击图标并复制
+### 2. 获取认证Token
+
+#### 方法一：使用Chrome扩展（推荐）
+1. 安装Chrome扩展：[Trae Usage Token Extractor](https://chromewebstore.google.com/detail/edkpaodbjadikhahggapfilgmfijjhei?utm_source=item-share-cb)
+2. 在Trae.ai官网查看一次Usage页面
+3. 点击Chrome扩展图标并复制Token
+
+#### 方法二：手动获取
+1. 在Trae.ai查看Usage时通过Chrome控制台找到API `/ide_user_pay_status` 并复制其中的authorization请求头参数
 
 ### 3. 配置认证Token
 
 首次使用时，扩展会提示设置认证Token：
 
-1. 点击侧边栏的 "Trae Usage Monitor" 面板
-2. 输入你的Trae AI认证Token（不包含 "Cloud-IDE-JWT " 前缀）
+1. 点击侧边栏的 "Trae Usage Monitor" 面板中的设置按钮（⚙️）
+2. 选择获取Token的方式：
+   - **安装Chrome扩展**：自动跳转到Chrome应用商店安装扩展
+   - **手动输入**：直接输入Token
+3. 输入你的Trae AI认证Token（不包含 "Cloud-IDE-JWT " 前缀）
 
 你也可以手动配置：
 
@@ -34,7 +43,7 @@ Trae的应用市场搜索Trae Usage
 2. 搜索 "trae usage"
 3. 在 "Auth Token" 字段中输入你的Token
 
-### 3. 查看使用量
+### 4. 查看使用量
 
 配置完成后，在VSCode左侧的资源管理器面板中会出现 "Trae Usage" 视图，显示：
 

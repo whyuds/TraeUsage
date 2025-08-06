@@ -59,6 +59,18 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
   }
 
   getChildren(element?: UsageItem): Thenable<UsageItem[]> {
+    const config = vscode.workspace.getConfiguration('traeUsage');
+    const authToken = config.get<string>('authToken');
+    
+    if (!authToken) {
+      return Promise.resolve([
+        new UsageItem('⚠️ 未配置Token', '点击设置Token', vscode.TreeItemCollapsibleState.None, {
+          command: 'traeUsage.updateToken',
+          title: '设置Token'
+        })
+      ]);
+    }
+    
     if (!this.usageData) {
       return Promise.resolve([new UsageItem('正在加载...', '', vscode.TreeItemCollapsibleState.None)]);
     }
@@ -304,17 +316,31 @@ export function activate(context: vscode.ExtensionContext) {
 
   // 注册更新Token命令
   const updateTokenCommand = vscode.commands.registerCommand('traeUsage.updateToken', async () => {
-    const token = await vscode.window.showInputBox({
-      prompt: '请输入Trae AI认证Token (不包含"Cloud-IDE-JWT "前缀)',
-      placeHolder: 'eyJhbGciOi...',
-      password: true
-    });
+    // 先提示用户可以使用Chrome扩展获取Token
+    const choice = await vscode.window.showInformationMessage(
+      '获取Token方式：\n1. 使用Chrome扩展自动获取, 2. 获取后手动输入',
+      '手动输入',
+      '安装Chrome扩展'
+    );
+    
+    if (choice === '安装Chrome扩展') {
+      vscode.env.openExternal(vscode.Uri.parse('https://chromewebstore.google.com/detail/edkpaodbjadikhahggapfilgmfijjhei?utm_source=item-share-cb'));
+      return;
+    }
+    
+    if (choice === '手动输入') {
+      const token = await vscode.window.showInputBox({
+        prompt: '请输入Trae AI认证Token (不包含"Cloud-IDE-JWT "前缀)',
+        placeHolder: 'eyJhbGciOi...',
+        password: true
+      });
 
-    if (token) {
-      const config = vscode.workspace.getConfiguration('traeUsage');
-      await config.update('authToken', token, vscode.ConfigurationTarget.Global);
-      vscode.window.showInformationMessage('Token已更新');
-      provider.refresh();
+      if (token) {
+        const config = vscode.workspace.getConfiguration('traeUsage');
+        await config.update('authToken', token, vscode.ConfigurationTarget.Global);
+        vscode.window.showInformationMessage('Token已更新');
+        provider.refresh();
+      }
     }
   });
 

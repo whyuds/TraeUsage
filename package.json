@@ -2,7 +2,7 @@
   "name": "trae-usage-monitor",
   "displayName": "Trae Usage",
   "description": "Monitor Trae AI usage statistics in real-time",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "whyuds",
   "repository": {
     "type": "git",
@@ -15,6 +15,7 @@
   "categories": [
     "Other"
   ],
+  "icon": "img/logo_256.png",
   "activationEvents": [
     "onStartupFinished"
   ],
