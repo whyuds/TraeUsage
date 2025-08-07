@@ -2,14 +2,17 @@
 
 一个VSCode扩展，用于实时监控Trae AI的使用量统计。
 
-![image.png](img/img.png)
+## 使用演示
 
-## 功能特性
+<div align="center">
+  <img src="img/traeusage_shot.gif" alt="使用演示" height="300" style="margin-right: 20px;">
+  <img src="img/img.png" alt="功能截图" height="300">
+</div>
 
-- 🔄 自动刷新：VSCode启动时自动获取数据，每5分钟自动刷新
-- 📊 实时显示：在侧边栏显示各种服务的使用量和剩余配额
-- 🔐 认证管理：Token失效时自动提醒用户更新
-- ⚙️ 可配置：支持自定义刷新间隔
+<p align="center">
+  <em>左：使用演示 | 右：功能截图</em>
+</p>
+
 
 ## 安装和使用
 
@@ -19,31 +22,21 @@ Trae的应用市场搜索Trae Usage
 
 ### 2. 获取认证Token
 
-#### 方法一：使用Chrome扩展（推荐）
+**Chrome浏览器：**
 1. 安装Chrome扩展：[Trae Usage Token Extractor](https://chromewebstore.google.com/detail/edkpaodbjadikhahggapfilgmfijjhei?utm_source=item-share-cb)
-2. 在Trae.ai官网查看一次Usage页面
-3. 点击Chrome扩展图标并复制Token
 
-#### 方法二：手动获取
-1. 在Trae.ai查看Usage时通过Chrome控制台找到API `/ide_user_pay_status` 并复制其中的authorization请求头参数
+**Edge浏览器：**
+1. 安装Edge扩展：[Trae Usage Token Extractor](https://microsoftedge.microsoft.com/addons/detail/webelementtracker/leopdblngeedggognlgokdlfpiojalji)
 
-### 3. 配置认证Token
+**使用步骤：**
+1. 点击扩展图标
+2. 点击按钮"Go to Trae Usage Page"
+3. 登录并浏览usage页面，自动获取token
+4. 点击按钮"Copy Token to Clipboard"
+5. 返回Trae点击Trae Usage设置输入token
 
-首次使用时，扩展会提示设置认证Token：
 
-1. 点击侧边栏的 "Trae Usage Monitor" 面板中的设置按钮（⚙️）
-2. 选择获取Token的方式：
-   - **安装Chrome扩展**：自动跳转到Chrome应用商店安装扩展
-   - **手动输入**：直接输入Token
-3. 输入你的Trae AI认证Token（不包含 "Cloud-IDE-JWT " 前缀）
-
-你也可以手动配置：
-
-1. 打开VSCode设置 (`Ctrl+,`)
-2. 搜索 "trae usage"
-3. 在 "Auth Token" 字段中输入你的Token
-
-### 4. 查看使用量
+### 3. 查看使用量
 
 配置完成后，在VSCode左侧的资源管理器面板中会出现 "Trae Usage" 视图，显示：
 
@@ -52,17 +45,14 @@ Trae的应用市场搜索Trae Usage
 - 🔧 Auto Completion：自动补全的使用量和剩余配额
 - 🚀 Advanced Model：高级模型的使用量和剩余配额
 
-## 配置选项
 
-在VSCode设置中可以配置以下选项：
+## 反馈与支持
 
-- `traeUsage.authToken`: Trae AI认证Token
-- `traeUsage.refreshInterval`: 自动刷新间隔（分钟，默认5分钟）
+如果您在使用过程中遇到问题或有功能建议，欢迎访问我们的GitHub项目页面：
 
-## 命令
+🔗 **项目地址**：[https://github.com/whyuds/TraeUsage](https://github.com/whyuds/TraeUsage)
 
-- `Trae Usage: Refresh Usage Data`: 手动刷新使用量数据
-- `Trae Usage: Update Auth Token`: 更新认证Token
+💬 **问题反馈**：如有问题请在GitHub上提交[Issues](https://github.com/whyuds/TraeUsage/issues)
 
 ## 许可证
 
