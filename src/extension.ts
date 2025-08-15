@@ -393,6 +393,48 @@ export function activate(context: vscode.ExtensionContext) {
     showCollapseAll: true
   });
 
+  // 剪贴板检测功能
+  async function checkClipboardForSession() {
+    try {
+      const clipboardText = await vscode.env.clipboard.readText();
+      const sessionMatch = clipboardText.match(/X-Cloudide-Session=([^\s;]+)/);
+      
+      if (sessionMatch && sessionMatch[1]) {
+        const sessionId = sessionMatch[1];
+        const config = vscode.workspace.getConfiguration('traeUsage');
+        const currentSessionId = config.get<string>('sessionId');
+        
+        // 如果检测到的Session ID与当前配置不同，询问用户是否更新
+        if (sessionId !== currentSessionId) {
+          const choice = await vscode.window.showInformationMessage(
+            `检测到剪贴板中的Session ID:\n${sessionId.substring(0, 20)}...\n\n是否更新为新的Session ID？`,
+            '确认更新',
+            '取消'
+          );
+          
+          if (choice === '确认更新') {
+            await config.update('sessionId', sessionId, vscode.ConfigurationTarget.Global);
+            vscode.window.showInformationMessage('Session ID已自动更新');
+            provider.refresh();
+          }
+        }
+      }
+    } catch (error) {
+      // 静默处理错误，避免干扰用户
+      console.log('剪贴板检测失败:', error);
+    }
+  }
+
+  // 监听窗口状态变化
+  const windowStateListener = vscode.window.onDidChangeWindowState(async (e) => {
+    if (e.focused) {
+      // 延迟检测，避免频繁触发
+      setTimeout(() => {
+        checkClipboardForSession();
+      }, 500);
+    }
+  });
+
   // 注册刷新命令
   const refreshCommand = vscode.commands.registerCommand('traeUsage.refresh', () => {
     provider.refresh();
@@ -435,7 +477,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  context.subscriptions.push(refreshCommand, updateSessionCommand, provider);
+  context.subscriptions.push(refreshCommand, updateSessionCommand, provider, windowStateListener);
 }
 
 export function deactivate() {}
