@@ -5,6 +5,17 @@ exports.deactivate = deactivate;
 const vscode = require("vscode");
 const axios_1 = require("axios");
 class TraeUsageProvider {
+    formatTimestamp(timestamp) {
+        const date = new Date(timestamp * 1000);
+        return date.toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        }).replace(/\//g, '/');
+    }
     constructor(context) {
         this.context = context;
         this._onDidChangeTreeData = new vscode.EventEmitter();
@@ -59,7 +70,9 @@ class TraeUsageProvider {
                 const quota = pack.entitlement_base_info.quota;
                 const statusText = pack.status === 1 ? '活跃' : pack.status === 0 ? '未激活' : '未知状态';
                 const statusIcon = pack.status === 1 ? '🟢' : '🔴';
-                items.push(new UsageItem(`${statusIcon} 订阅包 ${index + 1}`, statusText, vscode.TreeItemCollapsibleState.Expanded, undefined, `pack-${index}`));
+                const expireDate = this.formatTimestamp(pack.entitlement_base_info.end_time);
+                const tooltip = `Expire at ${expireDate}`;
+                items.push(new UsageItem(`${statusIcon} 订阅包 ${index + 1}`, statusText, vscode.TreeItemCollapsibleState.Expanded, undefined, `pack-${index}`, tooltip));
             });
             return Promise.resolve(items);
         }
@@ -72,34 +85,32 @@ class TraeUsageProvider {
             }
             const usage = pack.usage;
             const quota = pack.entitlement_base_info.quota;
+            const expireDate = this.formatTimestamp(pack.entitlement_base_info.end_time);
+            const tooltip = `Expire at ${expireDate}`;
             const items = [];
             // Premium Fast Request
             if (quota.premium_model_fast_request_limit !== 0) {
-                const limit = quota.premium_model_fast_request_limit === -1 ? '无限制' : quota.premium_model_fast_request_limit.toString();
                 const used = usage.premium_model_fast_request_usage;
-                const remaining = quota.premium_model_fast_request_limit === -1 ? '无限制' : (quota.premium_model_fast_request_limit - used).toString();
-                items.push(new UsageItem('⚡ Premium Fast Request', `已用: ${used} | 剩余: ${remaining}`, vscode.TreeItemCollapsibleState.None));
+                const remaining = quota.premium_model_fast_request_limit === -1 ? '∞' : (quota.premium_model_fast_request_limit - used).toString();
+                items.push(new UsageItem(`⚡ ${used} / ${remaining === '∞' ? '∞' : quota.premium_model_fast_request_limit}`, 'Premium Fast Request', vscode.TreeItemCollapsibleState.None, undefined, undefined, tooltip));
             }
             // Premium Slow Request
             if (quota.premium_model_slow_request_limit !== 0) {
-                const limit = quota.premium_model_slow_request_limit === -1 ? '无限制' : quota.premium_model_slow_request_limit.toString();
                 const used = usage.premium_model_slow_request_usage;
-                const remaining = quota.premium_model_slow_request_limit === -1 ? '无限制' : (quota.premium_model_slow_request_limit - used).toString();
-                items.push(new UsageItem('🐌 Premium Slow Request', `已用: ${used} | 剩余: ${remaining}`, vscode.TreeItemCollapsibleState.None));
+                const remaining = quota.premium_model_slow_request_limit === -1 ? '∞' : (quota.premium_model_slow_request_limit - used).toString();
+                items.push(new UsageItem(`🐌 ${used} / ${remaining === '∞' ? '∞' : quota.premium_model_slow_request_limit}`, 'Premium Slow Request', vscode.TreeItemCollapsibleState.None, undefined, undefined, tooltip));
             }
             // Auto Completion
             if (quota.auto_completion_limit !== 0) {
-                const limit = quota.auto_completion_limit === -1 ? '无限制' : quota.auto_completion_limit.toString();
                 const used = usage.auto_completion_usage;
-                const remaining = quota.auto_completion_limit === -1 ? '无限制' : (quota.auto_completion_limit - used).toString();
-                items.push(new UsageItem('🔧 Auto Completion', `已用: ${used} | 剩余: ${remaining}`, vscode.TreeItemCollapsibleState.None));
+                const remaining = quota.auto_completion_limit === -1 ? '∞' : (quota.auto_completion_limit - used).toString();
+                items.push(new UsageItem(`🔧 ${used} / ${remaining === '∞' ? '∞' : quota.auto_completion_limit}`, 'Auto Completion', vscode.TreeItemCollapsibleState.None, undefined, undefined, tooltip));
             }
             // Advanced Model
             if (quota.advanced_model_request_limit !== 0) {
-                const limit = quota.advanced_model_request_limit === -1 ? '无限制' : quota.advanced_model_request_limit.toString();
                 const used = usage.advanced_model_request_usage;
-                const remaining = quota.advanced_model_request_limit === -1 ? '无限制' : (quota.advanced_model_request_limit - used).toString();
-                items.push(new UsageItem('🚀 Advanced Model', `已用: ${used} | 剩余: ${remaining}`, vscode.TreeItemCollapsibleState.None));
+                const remaining = quota.advanced_model_request_limit === -1 ? '∞' : (quota.advanced_model_request_limit - used).toString();
+                items.push(new UsageItem(`🚀 ${used} / ${remaining === '∞' ? '∞' : quota.advanced_model_request_limit}`, 'Advanced Model', vscode.TreeItemCollapsibleState.None, undefined, undefined, tooltip));
             }
             if (usage.is_flash_consuming) {
                 items.push(new UsageItem('⚡ Flash消费中', '', vscode.TreeItemCollapsibleState.None));
@@ -108,15 +119,45 @@ class TraeUsageProvider {
         }
         return Promise.resolve([]);
     }
+    async getTokenFromSession(sessionId) {
+        try {
+            const response = await axios_1.default.post('https://api-sg-central.trae.ai/cloudide/api/v3/common/GetUserToken', {}, {
+                headers: {
+                    'Cookie': `X-Cloudide-Session=${sessionId}`,
+                    'Host': 'api-sg-central.trae.ai',
+                    'Content-Type': 'application/json'
+                },
+                timeout: 10000
+            });
+            return response.data.Result.Token;
+        }
+        catch (error) {
+            console.error('获取Token失败:', error);
+            return null;
+        }
+    }
     async fetchUsageData(retryCount = 0) {
         try {
             const config = vscode.workspace.getConfiguration('traeUsage');
-            const authToken = config.get('authToken');
+            const sessionId = config.get('sessionId');
+            if (!sessionId) {
+                if (this.isManualRefresh) {
+                    vscode.window.showWarningMessage('请先设置Trae AI Session ID', '设置Session ID').then(selection => {
+                        if (selection === '设置Session ID') {
+                            vscode.commands.executeCommand('traeUsage.updateSession');
+                        }
+                    });
+                }
+                this.isManualRefresh = false;
+                return;
+            }
+            // 通过Session ID获取Token
+            const authToken = await this.getTokenFromSession(sessionId);
             if (!authToken) {
                 if (this.isManualRefresh) {
-                    vscode.window.showWarningMessage('请先设置Trae AI认证Token', '设置Token').then(selection => {
-                        if (selection === '设置Token') {
-                            vscode.commands.executeCommand('traeUsage.updateToken');
+                    vscode.window.showErrorMessage('无法获取Token，请检查Session ID是否正确', '更新Session ID').then(selection => {
+                        if (selection === '更新Session ID') {
+                            vscode.commands.executeCommand('traeUsage.updateSession');
                         }
                     });
                 }
@@ -134,9 +175,9 @@ class TraeUsageProvider {
             this.usageData = response.data;
             if (this.usageData?.code === 1001) {
                 if (this.isManualRefresh) {
-                    vscode.window.showErrorMessage('Trae AI认证已失效，请更新Token', '更新Token').then(selection => {
-                        if (selection === '更新Token') {
-                            vscode.commands.executeCommand('traeUsage.updateToken');
+                    vscode.window.showErrorMessage('Trae AI认证已失效，请更新Session ID', '更新Session ID').then(selection => {
+                        if (selection === '更新Session ID') {
+                            vscode.commands.executeCommand('traeUsage.updateSession');
                         }
                     });
                 }
@@ -188,15 +229,16 @@ class TraeUsageProvider {
     }
 }
 class UsageItem extends vscode.TreeItem {
-    constructor(label, description, collapsibleState, command, contextValue) {
+    constructor(label, description, collapsibleState, command, contextValue, customTooltip) {
         super(label, collapsibleState);
         this.label = label;
         this.description = description;
         this.collapsibleState = collapsibleState;
         this.command = command;
         this.contextValue = contextValue;
+        this.customTooltip = customTooltip;
         this.description = description;
-        this.tooltip = `${this.label}: ${this.description}`;
+        this.tooltip = customTooltip || `${this.label}: ${this.description}`;
     }
 }
 function activate(context) {
@@ -211,29 +253,33 @@ function activate(context) {
         provider.refresh();
         vscode.window.showInformationMessage('使用量数据已刷新');
     });
-    // 注册更新Token命令
-    const updateTokenCommand = vscode.commands.registerCommand('traeUsage.updateToken', async () => {
-        // 先提示用户可以使用Chrome扩展获取Token
-        const choice = await vscode.window.showInformationMessage('获取Token方式：\n1. 使用Chrome扩展自动获取, 2. 获取后手动输入', '手动输入', '安装Chrome扩展');
+    // 注册更新Session ID命令
+    const updateSessionCommand = vscode.commands.registerCommand('traeUsage.updateSession', async () => {
+        // 先提示用户可以使用浏览器扩展获取Session ID
+        const choice = await vscode.window.showInformationMessage('获取Session ID方式：\n1. 使用浏览器扩展自动获取, 2. 从浏览器开发者工具手动获取', '手动输入', '安装Chrome扩展', '安装Edge扩展');
         if (choice === '安装Chrome扩展') {
             vscode.env.openExternal(vscode.Uri.parse('https://chromewebstore.google.com/detail/edkpaodbjadikhahggapfilgmfijjhei?utm_source=item-share-cb'));
             return;
         }
+        if (choice === '安装Edge扩展') {
+            vscode.env.openExternal(vscode.Uri.parse('https://microsoftedge.microsoft.com/addons/detail/trae-usage-monitor/your-edge-extension-id'));
+            return;
+        }
         if (choice === '手动输入') {
-            const token = await vscode.window.showInputBox({
-                prompt: '请输入Trae AI认证Token (不包含"Cloud-IDE-JWT "前缀)',
-                placeHolder: 'eyJhbGciOi...',
+            const sessionId = await vscode.window.showInputBox({
+                prompt: '请输入Trae AI Session ID (X-Cloudide-Session cookie值)',
+                placeHolder: 'R8NbjgD8cIgVd3F8ifzV56OGQsWIfDVL-zvs6-cDJrE=.18590a635a724869',
                 password: true
             });
-            if (token) {
+            if (sessionId) {
                 const config = vscode.workspace.getConfiguration('traeUsage');
-                await config.update('authToken', token, vscode.ConfigurationTarget.Global);
-                vscode.window.showInformationMessage('Token已更新');
+                await config.update('sessionId', sessionId, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage('Session ID已更新');
                 provider.refresh();
             }
         }
     });
-    context.subscriptions.push(refreshCommand, updateTokenCommand, provider);
+    context.subscriptions.push(refreshCommand, updateSessionCommand, provider);
 }
 function deactivate() { }
 //# sourceMappingURL=extension.js.map

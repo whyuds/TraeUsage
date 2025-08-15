@@ -2,7 +2,7 @@
   "name": "trae-usage-monitor",
   "displayName": "Trae Usage",
   "description": "Monitor Trae AI usage statistics in real-time",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "publisher": "whyuds",
   "repository": {
     "type": "git",
@@ -59,10 +59,10 @@
     "configuration": {
       "title": "Trae Usage",
       "properties": {
-        "traeUsage.authToken": {
+        "traeUsage.sessionId": {
           "type": "string",
           "default": "",
-          "description": "Trae AI authentication token"
+          "description": "Trae AI session ID (X-Cloudide-Session cookie value)"
         },
         "traeUsage.refreshInterval": {
           "type": "number",
