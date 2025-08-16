@@ -93,13 +93,24 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
 
   getChildren(element?: UsageItem): Thenable<UsageItem[]> {
     const config = vscode.workspace.getConfiguration('traeUsage');
-    const authToken = config.get<string>('authToken');
+    const sessionId = config.get<string>('sessionId');
     
-    if (!authToken) {
+    if (!sessionId) {
       return Promise.resolve([
-        new UsageItem('⚠️ 未配置Token', '点击设置Token', vscode.TreeItemCollapsibleState.None, {
-          command: 'traeUsage.updateToken',
-          title: '设置Token'
+        new UsageItem('⚠️ 未配置Session ID', '请先配置Session ID', vscode.TreeItemCollapsibleState.None, {
+          command: 'traeUsage.updateSession',
+          title: '设置Session ID'
+        }),
+        new UsageItem('📖 配置说明', '1. 安装浏览器扩展获取Session ID', vscode.TreeItemCollapsibleState.None),
+        new UsageItem('🔗 Chrome扩展', '点击安装Chrome扩展', vscode.TreeItemCollapsibleState.None, {
+          command: 'vscode.open',
+          title: '安装Chrome扩展',
+          arguments: [vscode.Uri.parse('https://chromewebstore.google.com/detail/trae-ai-session-extractor/eejeaklkdnkdlcfnpbkdlbpbkdlbpbkd')]
+        }),
+        new UsageItem('🔗 Edge扩展', '点击安装Edge扩展', vscode.TreeItemCollapsibleState.None, {
+          command: 'vscode.open',
+          title: '安装Edge扩展',
+          arguments: [vscode.Uri.parse('https://microsoftedge.microsoft.com/addons/detail/trae-ai-session-extractor/abcdefghijklmnopqrstuvwxyz123456')]
         })
       ]);
     }
@@ -110,9 +121,9 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
 
     if (this.usageData.code === 1001) {
       return Promise.resolve([
-        new UsageItem('❌ 认证失效', '请更新Token', vscode.TreeItemCollapsibleState.None, {
-          command: 'traeUsage.updateToken',
-          title: '更新Token'
+        new UsageItem('❌ 认证失效', '请更新Session ID', vscode.TreeItemCollapsibleState.None, {
+          command: 'traeUsage.updateSession',
+          title: '更新Session ID'
         })
       ]);
     }
@@ -479,7 +490,7 @@ export function activate(context: vscode.ExtensionContext) {
     );
     
     if (choice === '安装Chrome扩展') {
-      vscode.env.openExternal(vscode.Uri.parse('https://chromewebstore.google.com/detail/edkpaodbjadikhahggapfilgmfijjhei?utm_source=item-share-cb'));
+      vscode.env.openExternal(vscode.Uri.parse('https://chromewebstore.google.com/detail/edkpaodbjadikhahggapfilgmfijjhei'));
       return;
     }
     

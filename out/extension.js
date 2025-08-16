@@ -36,12 +36,23 @@ class TraeUsageProvider {
     }
     getChildren(element) {
         const config = vscode.workspace.getConfiguration('traeUsage');
-        const authToken = config.get('authToken');
-        if (!authToken) {
+        const sessionId = config.get('sessionId');
+        if (!sessionId) {
             return Promise.resolve([
-                new UsageItem('⚠️ 未配置Token', '点击设置Token', vscode.TreeItemCollapsibleState.None, {
-                    command: 'traeUsage.updateToken',
-                    title: '设置Token'
+                new UsageItem('⚠️ 未配置Session ID', '请先配置Session ID', vscode.TreeItemCollapsibleState.None, {
+                    command: 'traeUsage.updateSession',
+                    title: '设置Session ID'
+                }),
+                new UsageItem('📖 配置说明', '1. 安装浏览器扩展获取Session ID', vscode.TreeItemCollapsibleState.None),
+                new UsageItem('🔗 Chrome扩展', '点击安装Chrome扩展', vscode.TreeItemCollapsibleState.None, {
+                    command: 'vscode.open',
+                    title: '安装Chrome扩展',
+                    arguments: [vscode.Uri.parse('https://chromewebstore.google.com/detail/edkpaodbjadikhahggapfilgmfijjhei')]
+                }),
+                new UsageItem('🔗 Edge扩展', '点击安装Edge扩展', vscode.TreeItemCollapsibleState.None, {
+                    command: 'vscode.open',
+                    title: '安装Edge扩展',
+                    arguments: [vscode.Uri.parse('https://microsoftedge.microsoft.com/addons/detail/trae-ai-session-extractor/abcdefghijklmnopqrstuvwxyz123456')]
                 })
             ]);
         }
@@ -50,9 +61,9 @@ class TraeUsageProvider {
         }
         if (this.usageData.code === 1001) {
             return Promise.resolve([
-                new UsageItem('❌ 认证失效', '请更新Token', vscode.TreeItemCollapsibleState.None, {
-                    command: 'traeUsage.updateToken',
-                    title: '更新Token'
+                new UsageItem('❌ 认证失效', '请更新Session ID', vscode.TreeItemCollapsibleState.None, {
+                    command: 'traeUsage.updateSession',
+                    title: '更新Session ID'
                 })
             ]);
         }
@@ -312,7 +323,7 @@ function activate(context) {
         // 未设置session或选择重新设置时，提供扩展下载选项
         const choice = await vscode.window.showInformationMessage('请先安装Trae Usage浏览器扩展获取Session ID，安装后访问官网会自动获取。返回VSCode时会自动识别剪贴板中的Session ID。', '安装Chrome扩展', '安装Edge扩展');
         if (choice === '安装Chrome扩展') {
-            vscode.env.openExternal(vscode.Uri.parse('https://chromewebstore.google.com/detail/edkpaodbjadikhahggapfilgmfijjhei?utm_source=item-share-cb'));
+            vscode.env.openExternal(vscode.Uri.parse('https://chromewebstore.google.com/detail/edkpaodbjadikhahggapfilgmfijjhei'));
             return;
         }
         if (choice === '安装Edge扩展') {
