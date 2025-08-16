@@ -31,21 +31,11 @@ Trae的应用市场搜索Trae Usage
 1. 安装Edge扩展：[Trae Usage Token Extractor](https://microsoftedge.microsoft.com/addons/detail/webelementtracker/leopdblngeedggognlgokdlfpiojalji)
 
 **使用步骤：**
-1. 点击扩展图标
+1. 点击Chrome扩展图标
 2. 点击按钮"Go to Trae Usage Page"
 3. 登录并浏览usage页面，自动获取Session ID
-4. 点击按钮"Copy Session ID to Clipboard"
-5. 返回VSCode，在Trae Usage视图中点击设置按钮，选择"手动输入"并粘贴Session ID
-
-**方法二：手动获取Session ID**
-
-1. 打开浏览器，访问 [Trae AI](https://trae.ai) 并登录
-2. 按F12打开开发者工具
-3. 切换到"Application"或"存储"标签页
-4. 在左侧找到"Cookies" → "https://trae.ai"
-5. 找到名为"X-Cloudide-Session"的cookie，复制其值
-6. 在VSCode的Trae Usage视图中点击设置按钮，选择"手动输入"并粘贴Session ID
-
+4. 点击Chrome扩展图标，自动复制Session ID至粘贴板
+5. 返回Trae，Trae Usage扩展会自动识别粘贴板并配置Session ID
 
 ### 3. 查看使用量
 
