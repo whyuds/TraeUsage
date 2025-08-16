@@ -47,7 +47,7 @@ class TraeUsageProvider {
                 new UsageItem('🔗 Chrome扩展', '点击安装Chrome扩展', vscode.TreeItemCollapsibleState.None, {
                     command: 'vscode.open',
                     title: '安装Chrome扩展',
-                    arguments: [vscode.Uri.parse('https://chromewebstore.google.com/detail/edkpaodbjadikhahggapfilgmfijjhei')]
+                    arguments: [vscode.Uri.parse('https://chromewebstore.google.com/detail/trae-ai-session-extractor/eejeaklkdnkdlcfnpbkdlbpbkdlbpbkd')]
                 }),
                 new UsageItem('🔗 Edge扩展', '点击安装Edge扩展', vscode.TreeItemCollapsibleState.None, {
                     command: 'vscode.open',
