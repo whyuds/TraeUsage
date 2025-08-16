@@ -4,15 +4,9 @@
 
 ## 使用演示
 
-<div align="center">
-  <img src="img/traeusage_shot.gif" alt="使用演示" height="300" style="margin-right: 20px;">
-  <img src="img/img.png" alt="功能截图" height="300">
+<div>
+  <img src="img/image.png" alt="功能截图" height="300">
 </div>
-
-<p align="center">
-  <em>左：使用演示 | 右：功能截图</em>
-</p>
-
 
 ## 安装和使用
 
@@ -31,8 +25,8 @@ Trae的应用市场搜索Trae Usage
 1. 安装Edge扩展：[Trae Usage Token Extractor](https://microsoftedge.microsoft.com/addons/detail/webelementtracker/leopdblngeedggognlgokdlfpiojalji)
 
 **使用步骤：**
-1. 点击Chrome扩展图标
-2. 点击按钮"Go to Trae Usage Page"
+1. 安装后通过通知或TraeUsage窗口设置跳转安装Chrome扩展
+2. 安装后在浏览器点击Chrome扩展图标，点击跳转按钮到Usage页面
 3. 登录并浏览usage页面，自动获取Session ID
 4. 点击Chrome扩展图标，自动复制Session ID至粘贴板
 5. 返回Trae，Trae Usage扩展会自动识别粘贴板并配置Session ID
