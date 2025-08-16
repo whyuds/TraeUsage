@@ -417,6 +417,11 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showInformationMessage('Session ID已自动更新');
             provider.refresh();
           }
+        } else {
+          // 如果Session ID相同，提示用户识别到相同的Session ID
+          vscode.window.showInformationMessage(
+            `识别到相同的Session ID:\n${sessionId.substring(0, 20)}...\n\n不会进行更新`
+          );
         }
       }
     } catch (error) {
@@ -443,10 +448,32 @@ export function activate(context: vscode.ExtensionContext) {
 
   // 注册更新Session ID命令
   const updateSessionCommand = vscode.commands.registerCommand('traeUsage.updateSession', async () => {
-    // 先提示用户可以使用浏览器扩展获取Session ID
+    const config = vscode.workspace.getConfiguration('traeUsage');
+    const currentSessionId = config.get<string>('sessionId');
+    
+    // 如果已经设置过session，提示跳转到官网usage页面
+    if (currentSessionId) {
+      const choice = await vscode.window.showInformationMessage(
+        '已设置Session ID。失效可通过已安装Trae Usage浏览器扩展，访问官网获取最新Session ID。',
+        '访问官网Usage页面',
+        '重新设置Session ID'
+      );
+      
+      if (choice === '访问官网Usage页面') {
+        vscode.env.openExternal(vscode.Uri.parse('https://www.trae.ai/account-setting#usage'));
+        return;
+      }
+      
+      if (choice === '重新设置Session ID') {
+        // 继续执行下面的设置流程
+      } else {
+        return;
+      }
+    }
+    
+    // 未设置session或选择重新设置时，提供扩展下载选项
     const choice = await vscode.window.showInformationMessage(
-      '获取Session ID方式：\n1. 使用浏览器扩展自动获取, 2. 从浏览器开发者工具手动获取',
-      '手动输入',
+      '请先安装Trae Usage浏览器扩展获取Session ID，安装后访问官网会自动获取。返回VSCode时会自动识别剪贴板中的Session ID。',
       '安装Chrome扩展',
       '安装Edge扩展'
     );
@@ -459,21 +486,6 @@ export function activate(context: vscode.ExtensionContext) {
     if (choice === '安装Edge扩展') {
       vscode.env.openExternal(vscode.Uri.parse('https://microsoftedge.microsoft.com/addons/detail/trae-usage-monitor/your-edge-extension-id'));
       return;
-    }
-    
-    if (choice === '手动输入') {
-      const sessionId = await vscode.window.showInputBox({
-        prompt: '请输入Trae AI Session ID (X-Cloudide-Session cookie值)',
-        placeHolder: 'R8NbjgD8cIgVd3F8ifzV56OGQsWIfDVL-zvs6-cDJrE=.18590a635a724869',
-        password: true
-      });
-
-      if (sessionId) {
-        const config = vscode.workspace.getConfiguration('traeUsage');
-        await config.update('sessionId', sessionId, vscode.ConfigurationTarget.Global);
-        vscode.window.showInformationMessage('Session ID已更新');
-        provider.refresh();
-      }
     }
   });
 

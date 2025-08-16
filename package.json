@@ -28,8 +28,8 @@
         "icon": "$(refresh)"
       },
       {
-        "command": "traeUsage.updateToken",
-        "title": "设置Token",
+        "command": "traeUsage.updateSession",
+        "title": "设置Session ID",
         "icon": "$(gear)"
       }
     ],
@@ -50,7 +50,7 @@
           "group": "navigation"
         },
         {
-          "command": "traeUsage.updateToken",
+          "command": "traeUsage.updateSession",
           "when": "view == traeUsageView",
           "group": "navigation"
         }
