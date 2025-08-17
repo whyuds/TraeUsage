@@ -24,12 +24,39 @@ class TraeUsageProvider {
         this.refreshTimer = null;
         this.retryTimer = null;
         this.isManualRefresh = false;
+        // 创建状态栏项
+        this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+        this.statusBarItem.command = 'traeUsage.refresh';
+        this.statusBarItem.show();
+        this.updateStatusBar();
         this.startAutoRefresh();
         this.fetchUsageData();
     }
     refresh() {
         this.isManualRefresh = true;
         this.fetchUsageData();
+    }
+    updateStatusBar() {
+        if (!this.usageData || this.usageData.code === 1001) {
+            this.statusBarItem.text = "$(warning) Trae: 未配置";
+            this.statusBarItem.tooltip = "点击配置Session ID";
+            return;
+        }
+        // 获取活跃订阅包的Premium Fast Request数据
+        const activePack = this.usageData.user_entitlement_pack_list.find(pack => pack.status === 1);
+        if (activePack) {
+            const usage = activePack.usage.premium_model_fast_request_usage;
+            const limit = activePack.entitlement_base_info.quota.premium_model_fast_request_limit;
+            const remaining = limit - usage;
+            const percentage = limit > 0 ? Math.round((usage / limit) * 100) : 0;
+            const expireDate = this.formatTimestamp(activePack.entitlement_base_info.end_time);
+            this.statusBarItem.text = `$(zap) Fast: ${usage}/${limit} (${remaining}剩余)`;
+            this.statusBarItem.tooltip = `Premium Fast Request\n已使用: ${usage}\n总配额: ${limit}\n剩余: ${remaining}\n使用率: ${percentage}%\n过期时间: ${expireDate}`;
+        }
+        else {
+            this.statusBarItem.text = "$(info) Trae: 无活跃订阅";
+            this.statusBarItem.tooltip = "没有找到活跃的订阅包";
+        }
     }
     getTreeItem(element) {
         return element;
@@ -194,6 +221,7 @@ class TraeUsageProvider {
                 }
             }
             this._onDidChangeTreeData.fire();
+            this.updateStatusBar();
             this.isManualRefresh = false;
         }
         catch (error) {
@@ -236,6 +264,9 @@ class TraeUsageProvider {
         }
         if (this.retryTimer) {
             clearTimeout(this.retryTimer);
+        }
+        if (this.statusBarItem) {
+            this.statusBarItem.dispose();
         }
     }
 }
