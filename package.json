@@ -24,20 +24,20 @@
     "commands": [
       {
         "command": "traeUsage.refresh",
-        "title": "Refresh Usage Data",
+        "title": "%commands.refresh.title%",
         "icon": "$(refresh)"
       },
       {
         "command": "traeUsage.updateSession",
-        "title": "设置Session ID",
-        "icon": "$(gear)"
+        "title": "%commands.updateSession.title%",
+        "icon": "$(settings-gear)"
       }
     ],
     "views": {
       "explorer": [
         {
           "id": "traeUsageView",
-          "name": "Trae Usage",
+          "name": "%views.traeUsageView.name%",
           "when": "true"
         }
       ]
@@ -57,38 +57,51 @@
       ]
     },
     "configuration": {
-      "title": "Trae Usage",
+      "title": "%configuration.title%",
       "properties": {
         "traeUsage.sessionId": {
           "type": "string",
           "default": "",
-          "description": "Trae AI session ID (X-Cloudide-Session cookie value)"
+          "description": "%configuration.sessionId.description%"
         },
         "traeUsage.refreshInterval": {
           "type": "number",
-          "default": 5,
-          "description": "Refresh interval in minutes"
+          "default": 300,
+          "description": "%configuration.refreshInterval.description%"
+        },
+        "traeUsage.language": {
+          "type": "string",
+          "enum": ["auto", "zh-CN", "en"],
+          "enumDescriptions": [
+            "%configuration.language.auto%",
+            "%configuration.language.zhCN%",
+            "%configuration.language.en%"
+          ],
+          "default": "auto",
+          "description": "%configuration.language.description%"
         }
       }
     }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
-    "compile": "npm run check-types && node esbuild.js",
-    "check-types": "tsc --noEmit",
-    "watch": "npm-run-all -p watch:*",
-    "watch:esbuild": "node esbuild.js --watch",
-    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "npm run check-types && node esbuild.js --production"
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "node esbuild.js"
   },
   "devDependencies": {
-    "@types/node": "18.x",
     "@types/vscode": "^1.74.0",
-    "esbuild": "^0.25.9",
-    "npm-run-all": "^4.1.5",
-    "typescript": "^5.0.0"
+    "@types/node": "16.x",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "eslint": "^8.28.0",
+    "typescript": "^4.9.4",
+    "esbuild": "^0.15.18"
   },
   "dependencies": {
-    "axios": "^1.7.0"
+    "axios": "^1.6.0"
   }
 }

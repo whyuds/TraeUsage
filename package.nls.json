@@ -1,0 +1,12 @@
+{
+  "commands.refresh.title": "Refresh Usage Data",
+  "commands.updateSession.title": "Set Session ID",
+  "views.traeUsageView.name": "Trae Usage",
+  "configuration.title": "Trae Usage",
+  "configuration.sessionId.description": "Trae AI session ID (X-Cloudide-Session cookie value)",
+  "configuration.refreshInterval.description": "Refresh interval in seconds",
+  "configuration.language.description": "Extension display language",
+  "configuration.language.auto": "Auto Detect",
+  "configuration.language.zhCN": "中文",
+  "configuration.language.en": "English"
+}

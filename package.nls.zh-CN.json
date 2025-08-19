@@ -1,0 +1,12 @@
+{
+  "commands.refresh.title": "TraeUsage: 刷新使用量数据",
+  "commands.updateSession.title": "TraeUsage: 设置Session ID",
+  "views.traeUsageView.name": "Trae Usage",
+  "configuration.title": "Trae Usage",
+  "configuration.sessionId.description": "Trae AI session ID (X-Cloudide-Session cookie值)",
+  "configuration.refreshInterval.description": "刷新间隔时间（秒）",
+  "configuration.language.description": "扩展显示语言",
+  "configuration.language.auto": "自动检测",
+  "configuration.language.zhCN": "中文",
+  "configuration.language.en": "English"
+}

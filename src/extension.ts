@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import axios from 'axios';
+import { initializeI18n, t } from './i18n';
 
 // 全局日志函数
 function logWithTime(message: string): void {
@@ -116,8 +117,8 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
 
   private updateStatusBar(): void {
     if (!this.usageData || this.usageData.code === 1001) {
-      this.statusBarItem.text = "$(warning) Trae: 未配置";
-      this.statusBarItem.tooltip = "点击配置Session ID";
+      this.statusBarItem.text = t('statusBar.notConfigured');
+      this.statusBarItem.tooltip = t('statusBar.clickToConfigureSession');
       return;
     }
 
@@ -130,11 +131,11 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
       const percentage = limit > 0 ? Math.round((usage / limit) * 100) : 0;
       const expireDate = this.formatTimestamp(activePack.entitlement_base_info.end_time);
       
-      this.statusBarItem.text = `$(zap) Fast: ${usage}/${limit} (${remaining}剩余)`;
-      this.statusBarItem.tooltip = `Premium Fast Request\n已使用: ${usage}\n总配额: ${limit}\n剩余: ${remaining}\n使用率: ${percentage}%\n过期时间: ${expireDate}`;
+      this.statusBarItem.text = `$(zap) Fast: ${usage}/${limit} (${t('statusBar.remaining', { remaining: remaining.toString() })})`;
+      this.statusBarItem.tooltip = `${t('serviceTypes.premiumFastRequest')}\n${t('statusBar.used', { used: usage.toString() })}\n${t('statusBar.totalQuota', { total: limit.toString() })}\n${t('statusBar.remaining', { remaining: remaining.toString() })}\n${t('statusBar.usageRate', { rate: percentage.toString() })}\n${t('statusBar.expireTime', { time: expireDate })}`;
     } else {
-      this.statusBarItem.text = "$(info) Trae: 无活跃订阅";
-      this.statusBarItem.tooltip = "没有找到活跃的订阅包";
+      this.statusBarItem.text = t('statusBar.noActiveSubscription');
+      this.statusBarItem.tooltip = t('statusBar.noActiveSubscriptionTooltip');
     }
   }
 
@@ -148,33 +149,33 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
     
     if (!sessionId) {
       return Promise.resolve([
-        new UsageItem('⚠️ 未配置Session ID', '请先配置Session ID', vscode.TreeItemCollapsibleState.None, {
+        new UsageItem(t('treeView.notConfiguredSessionId'), t('treeView.pleaseConfigureSessionId'), vscode.TreeItemCollapsibleState.None, {
           command: 'traeUsage.updateSession',
-          title: '设置Session ID'
+          title: t('commands.setSessionId')
         }),
-        new UsageItem('📖 配置说明', '1. 安装浏览器扩展获取Session ID', vscode.TreeItemCollapsibleState.None),
-        new UsageItem('🔗 Chrome扩展', '点击安装Chrome扩展', vscode.TreeItemCollapsibleState.None, {
+        new UsageItem(t('treeView.configurationGuide'), t('treeView.installBrowserExtension'), vscode.TreeItemCollapsibleState.None),
+        new UsageItem(t('treeView.chromeExtension'), t('treeView.clickToInstallChrome'), vscode.TreeItemCollapsibleState.None, {
           command: 'vscode.open',
-          title: '安装Chrome扩展',
+          title: t('commands.setSessionId'),
           arguments: [vscode.Uri.parse('https://chromewebstore.google.com/detail/trae-ai-session-extractor/eejeaklkdnkdlcfnpbkdlbpbkdlbpbkd')]
         }),
-        new UsageItem('🔗 Edge扩展', '点击安装Edge扩展', vscode.TreeItemCollapsibleState.None, {
+        new UsageItem(t('treeView.edgeExtension'), t('treeView.clickToInstallEdge'), vscode.TreeItemCollapsibleState.None, {
           command: 'vscode.open',
-          title: '安装Edge扩展',
+          title: t('commands.setSessionId'),
           arguments: [vscode.Uri.parse('https://microsoftedge.microsoft.com/addons/detail/trae-ai-session-extractor/abcdefghijklmnopqrstuvwxyz123456')]
         })
       ]);
     }
     
     if (!this.usageData) {
-      return Promise.resolve([new UsageItem('正在加载...', '', vscode.TreeItemCollapsibleState.None)]);
+      return Promise.resolve([new UsageItem(t('treeView.loading'), '', vscode.TreeItemCollapsibleState.None)]);
     }
 
     if (this.usageData.code === 1001) {
       return Promise.resolve([
-        new UsageItem('❌ 认证失效', '请更新Session ID', vscode.TreeItemCollapsibleState.None, {
+        new UsageItem(t('treeView.authenticationExpired'), t('treeView.pleaseUpdateSessionId'), vscode.TreeItemCollapsibleState.None, {
           command: 'traeUsage.updateSession',
-          title: '更新Session ID'
+          title: t('commands.updateSessionId')
         })
       ]);
     }
@@ -187,20 +188,20 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
       const allPacks = this.usageData.user_entitlement_pack_list;
       
       if (allPacks.length === 0) {
-        items.push(new UsageItem('无订阅包', '', vscode.TreeItemCollapsibleState.None));
+        items.push(new UsageItem(t('treeView.noSubscriptionPack'), '', vscode.TreeItemCollapsibleState.None));
         return Promise.resolve(items);
       }
 
       allPacks.forEach((pack, index) => {
         const usage = pack.usage;
         const quota = pack.entitlement_base_info.quota;
-        const statusText = pack.status === 1 ? '活跃' : pack.status === 0 ? '未激活' : '未知状态';
+        const statusText = pack.status === 1 ? t('treeView.active') : pack.status === 0 ? t('treeView.inactive') : t('treeView.unknownStatus');
         const statusIcon = pack.status === 1 ? '🟢' : '🔴';
         const expireDate = this.formatTimestamp(pack.entitlement_base_info.end_time);
-        const tooltip = `Expire at ${expireDate}`;
+        const tooltip = t('treeView.expireAt', { time: expireDate });
         
         items.push(new UsageItem(
-          `${statusIcon} 订阅包 ${index + 1}`,
+          `${statusIcon} ${t('treeView.subscriptionPack', { index: (index + 1).toString() })}`,
           statusText,
           vscode.TreeItemCollapsibleState.Expanded,
           undefined,
@@ -222,7 +223,7 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
       const usage = pack.usage;
       const quota = pack.entitlement_base_info.quota;
       const expireDate = this.formatTimestamp(pack.entitlement_base_info.end_time);
-      const tooltip = `Expire at ${expireDate}`;
+      const tooltip = t('treeView.expireAt', { time: expireDate });
       const items: UsageItem[] = [];
 
       // Premium Fast Request
@@ -232,7 +233,7 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
         
         items.push(new UsageItem(
           `⚡ ${used} / ${remaining === '∞' ? '∞' : quota.premium_model_fast_request_limit}`,
-          'Premium Fast Request',
+          t('serviceTypes.premiumFastRequest'),
           vscode.TreeItemCollapsibleState.None,
           undefined,
           undefined,
@@ -247,7 +248,7 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
         
         items.push(new UsageItem(
           `🐌 ${used} / ${remaining === '∞' ? '∞' : quota.premium_model_slow_request_limit}`,
-          'Premium Slow Request',
+          t('serviceTypes.premiumSlowRequest'),
           vscode.TreeItemCollapsibleState.None,
           undefined,
           undefined,
@@ -262,7 +263,7 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
         
         items.push(new UsageItem(
           `🔧 ${used} / ${remaining === '∞' ? '∞' : quota.auto_completion_limit}`,
-          'Auto Completion',
+          t('serviceTypes.autoCompletion'),
           vscode.TreeItemCollapsibleState.None,
           undefined,
           undefined,
@@ -277,7 +278,7 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
         
         items.push(new UsageItem(
           `🚀 ${used} / ${remaining === '∞' ? '∞' : quota.advanced_model_request_limit}`,
-          'Advanced Model',
+          t('serviceTypes.advancedModel'),
           vscode.TreeItemCollapsibleState.None,
           undefined,
           undefined,
@@ -287,7 +288,7 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
 
       if (usage.is_flash_consuming) {
         items.push(new UsageItem(
-          '⚡ Flash消费中',
+          t('treeView.flashConsuming'),
           '',
           vscode.TreeItemCollapsibleState.None
         ));
@@ -354,8 +355,8 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
 
       if (!sessionId) {
         if (this.isManualRefresh) {
-          vscode.window.showWarningMessage('请先设置Trae AI Session ID', '设置Session ID').then(selection => {
-            if (selection === '设置Session ID') {
+          vscode.window.showWarningMessage(t('messages.pleaseSetSessionId'), t('messages.setSessionId')).then(selection => {
+            if (selection === t('messages.setSessionId')) {
               vscode.commands.executeCommand('traeUsage.updateSession');
             }
           });
@@ -368,8 +369,8 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
       const authToken = await this.getTokenFromSession(sessionId);
       if (!authToken) {
         if (this.isManualRefresh) {
-          vscode.window.showErrorMessage('无法获取Token，请检查Session ID是否正确', '更新Session ID').then(selection => {
-            if (selection === '更新Session ID') {
+          vscode.window.showErrorMessage(t('messages.cannotGetToken'), t('messages.updateSessionId')).then(selection => {
+            if (selection === t('messages.updateSessionId')) {
               vscode.commands.executeCommand('traeUsage.updateSession');
             }
           });
@@ -403,8 +404,8 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
         this.cachedSessionId = null;
         
         if (this.isManualRefresh) {
-          vscode.window.showErrorMessage('Trae AI认证已失效，请更新Session ID', '更新Session ID').then(selection => {
-            if (selection === '更新Session ID') {
+          vscode.window.showErrorMessage(t('messages.authenticationExpired'), t('messages.updateSessionId')).then(selection => {
+            if (selection === t('messages.updateSessionId')) {
               vscode.commands.executeCommand('traeUsage.updateSession');
             }
           });
@@ -423,7 +424,7 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
       // 如果是手动刷新失败，只有非超时错误才通知用户
       if (this.isManualRefresh) {
         if (!isTimeoutError) {
-          vscode.window.showErrorMessage(`获取使用量数据失败: ${error}`);
+          vscode.window.showErrorMessage(t('messages.getUsageDataFailed', { error: error?.toString() || 'Unknown error' }));
         }
         this.isManualRefresh = false;
         return;
@@ -441,17 +442,22 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
     }
   }
 
-  private startAutoRefresh(): void {
+  public startAutoRefresh(): void {
     const config = vscode.workspace.getConfiguration('traeUsage');
-    const intervalMinutes = config.get<number>('refreshInterval', 5);
+    const intervalSeconds = config.get<number>('refreshInterval', 300);
+    const intervalMilliseconds = intervalSeconds * 1000;
     
     if (this.refreshTimer) {
       clearInterval(this.refreshTimer);
     }
 
+    // 确保间隔时间在32位有符号整数的安全范围内
+    const maxInterval = 2147483647;
+    const safeInterval = Math.min(intervalMilliseconds, maxInterval);
+
     this.refreshTimer = setInterval(() => {
       this.fetchUsageData();
-    }, intervalMinutes * 60 * 1000);
+    }, safeInterval);
   }
 
   dispose(): void {
@@ -483,6 +489,9 @@ class UsageItem extends vscode.TreeItem {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+  // 初始化国际化系统
+  initializeI18n();
+  
   const provider = new TraeUsageProvider(context);
   
   // 注册树视图
@@ -505,20 +514,20 @@ export function activate(context: vscode.ExtensionContext) {
         // 如果检测到的Session ID与当前配置不同，询问用户是否更新
         if (sessionId !== currentSessionId) {
           const choice = await vscode.window.showInformationMessage(
-            `检测到剪贴板中的Session ID:\n${sessionId.substring(0, 20)}...\n\n是否更新为新的Session ID？`,
-            '确认更新',
-            '取消'
+            t('messages.clipboardSessionDetected', { sessionId: sessionId.substring(0, 20) }),
+            t('messages.confirmUpdate'),
+            t('messages.cancel')
           );
           
-          if (choice === '确认更新') {
+          if (choice === t('messages.confirmUpdate')) {
             await config.update('sessionId', sessionId, vscode.ConfigurationTarget.Global);
-            vscode.window.showInformationMessage('Session ID已自动更新');
+            vscode.window.showInformationMessage(t('messages.sessionIdAutoUpdated'));
             provider.refresh();
           }
         } else {
           // 如果Session ID相同，提示用户识别到相同的Session ID
           vscode.window.showInformationMessage(
-            `识别到相同的Session ID:\n${sessionId.substring(0, 20)}...\n\n不会进行更新`
+            t('messages.sameSessionIdDetected', { sessionId: sessionId.substring(0, 20) })
           );
         }
       }
@@ -538,10 +547,21 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
+  // 监听配置变化
+  const configListener = vscode.workspace.onDidChangeConfiguration(e => {
+    if (e.affectsConfiguration('traeUsage.refreshInterval')) {
+      provider.startAutoRefresh();
+    }
+    if (e.affectsConfiguration('traeUsage.language')) {
+      initializeI18n();
+      provider.refresh();
+    }
+  });
+
   // 注册刷新命令
   const refreshCommand = vscode.commands.registerCommand('traeUsage.refresh', () => {
     provider.refresh();
-    vscode.window.showInformationMessage('使用量数据已刷新');
+    vscode.window.showInformationMessage(t('commands.usageDataRefreshed'));
   });
 
   // 注册更新Session ID命令
@@ -552,17 +572,17 @@ export function activate(context: vscode.ExtensionContext) {
     // 如果已经设置过session，提示跳转到官网usage页面
     if (currentSessionId) {
       const choice = await vscode.window.showInformationMessage(
-        '已设置Session ID。失效可通过已安装Trae Usage浏览器扩展，访问官网获取最新Session ID。',
-        '访问官网Usage页面',
-        '重新设置Session ID'
+        t('messages.sessionIdExpiredMessage'),
+        t('messages.visitOfficialUsagePage'),
+        t('messages.resetSessionId')
       );
       
-      if (choice === '访问官网Usage页面') {
+      if (choice === t('messages.visitOfficialUsagePage')) {
         vscode.env.openExternal(vscode.Uri.parse('https://www.trae.ai/account-setting#usage'));
         return;
       }
       
-      if (choice === '重新设置Session ID') {
+      if (choice === t('messages.resetSessionId')) {
         // 继续执行下面的设置流程
       } else {
         return;
@@ -571,23 +591,23 @@ export function activate(context: vscode.ExtensionContext) {
     
     // 未设置session或选择重新设置时，提供扩展下载选项
     const choice = await vscode.window.showInformationMessage(
-      '请先安装Trae Usage浏览器扩展获取Session ID，安装后访问官网会自动获取。返回VSCode时会自动识别剪贴板中的Session ID。',
-      '安装Chrome扩展',
-      '安装Edge扩展'
+      t('messages.pleaseInstallExtensionFirst'),
+      t('messages.installChromeExtension'),
+      t('messages.installEdgeExtension')
     );
     
-    if (choice === '安装Chrome扩展') {
+    if (choice === t('messages.installChromeExtension')) {
       vscode.env.openExternal(vscode.Uri.parse('https://chromewebstore.google.com/detail/edkpaodbjadikhahggapfilgmfijjhei'));
       return;
     }
     
-    if (choice === '安装Edge扩展') {
+    if (choice === t('messages.installEdgeExtension')) {
       vscode.env.openExternal(vscode.Uri.parse('https://microsoftedge.microsoft.com/addons/detail/trae-usage-monitor/your-edge-extension-id'));
       return;
     }
   });
 
-  context.subscriptions.push(refreshCommand, updateSessionCommand, provider, windowStateListener);
+  context.subscriptions.push(refreshCommand, updateSessionCommand, provider, windowStateListener, configListener);
 }
 
 export function deactivate() {}

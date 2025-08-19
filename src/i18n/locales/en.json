@@ -1,0 +1,79 @@
+{
+  "statusBar": {
+    "notConfigured": "$(warning) Trae: Not Configured",
+    "clickToConfigureSession": "Click to configure Session ID",
+    "noActiveSubscription": "$(info) Trae: No Active Subscription",
+    "noActiveSubscriptionTooltip": "No active subscription pack found",
+    "remaining": "{remaining} Left",
+    "used": "Used: {used}",
+    "totalQuota": "Total Quota: {total}",
+    "usageRate": "Usage Rate: {rate}%",
+    "expireTime": "Expire Time: {time}"
+  },
+  
+  "treeView": {
+    "notConfiguredSessionId": "⚠️ Session ID Not Configured",
+    "pleaseConfigureSessionId": "Please configure Session ID first",
+    "configurationGuide": "📖 Configuration Guide",
+    "installBrowserExtension": "1. Install browser extension to get Session ID",
+    "chromeExtension": "🔗 Chrome Extension",
+    "clickToInstallChrome": "Click to install Chrome extension",
+    "edgeExtension": "🔗 Edge Extension",
+    "clickToInstallEdge": "Click to install Edge extension",
+    "loading": "Loading...",
+    "authenticationExpired": "❌ Authentication Expired",
+    "pleaseUpdateSessionId": "Please update Session ID",
+    "noSubscriptionPack": "No subscription pack",
+    "subscriptionPack": "Subscription Pack {index}",
+    "active": "Active",
+    "inactive": "Inactive",
+    "unknownStatus": "Unknown Status",
+    "flashConsuming": "⚡ Flash Consuming",
+    "expireAt": "Expire at {time}"
+  },
+  
+  "commands": {
+    "refreshUsageData": "TraeUsage: Refresh Usage Data",
+    "setSessionId": "TraeUsage: Set Session ID",
+    "updateSessionId": "Update Session ID",
+    "refreshUsageDataTitle": "Refresh Usage Data",
+    "usageDataRefreshed": "Usage data refreshed"
+  },
+  
+  "messages": {
+    "pleaseSetSessionId": "Please set Trae AI Session ID first",
+    "setSessionId": "Set Session ID",
+    "cannotGetToken": "Cannot get token, please check if Session ID is correct",
+    "checkSessionIdCorrect": "Check if Session ID is correct",
+    "updateSessionId": "Update Session ID",
+    "authenticationExpired": "Trae AI authentication expired, please update Session ID",
+    "pleaseUpdateSessionId": "Please update Session ID",
+    "getUsageDataFailed": "Failed to get usage data: {error}",
+    "sessionIdAlreadySet": "Session ID already set. If expired, use installed Trae Usage browser extension to visit official website for latest Session ID.",
+    "sessionIdExpiredMessage": "Session ID already set. If expired, use installed Trae Usage browser extension to visit official website for latest Session ID.",
+    "visitOfficialUsagePage": "Visit Official Usage Page",
+    "resetSessionId": "Reset Session ID",
+    "pleaseInstallExtensionFirst": "Please install Trae Usage browser extension to get Session ID first. After installation, visit official website to automatically get it. VSCode will automatically detect Session ID in clipboard when you return.",
+    "installChromeExtension": "Install Chrome Extension",
+    "installEdgeExtension": "Install Edge Extension",
+    "clipboardSessionDetected": "Session ID detected in clipboard:\n{sessionId}...\n\nUpdate to new Session ID?",
+    "confirmUpdate": "Confirm Update",
+    "cancel": "Cancel",
+    "sessionIdAutoUpdated": "Session ID automatically updated",
+    "sameSessionIdDetected": "Same Session ID detected:\n{sessionId}...\n\nNo update needed",
+    "noUpdateNeeded": "No update needed"
+  },
+  
+  "configuration": {
+    "title": "Trae Usage",
+    "sessionIdDescription": "Trae AI session ID (X-Cloudide-Session cookie value)",
+    "refreshIntervalDescription": "Refresh interval in minutes"
+  },
+  
+  "serviceTypes": {
+    "premiumFastRequest": "Premium Fast Request",
+    "premiumSlowRequest": "Premium Slow Request",
+    "autoCompletion": "Auto Completion",
+    "advancedModel": "Advanced Model"
+  }
+}

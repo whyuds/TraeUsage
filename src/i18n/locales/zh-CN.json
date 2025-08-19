@@ -1,0 +1,79 @@
+{
+  "statusBar": {
+    "notConfigured": "$(warning) Trae: 未配置",
+    "clickToConfigureSession": "点击配置Session ID",
+    "noActiveSubscription": "$(info) Trae: 无活跃订阅",
+    "noActiveSubscriptionTooltip": "没有找到活跃的订阅包",
+    "remaining": "{remaining}剩余",
+    "used": "已使用: {used}",
+    "totalQuota": "总配额: {total}",
+    "usageRate": "使用率: {rate}%",
+    "expireTime": "过期时间: {time}"
+  },
+  
+  "treeView": {
+    "notConfiguredSessionId": "⚠️ 未配置Session ID",
+    "pleaseConfigureSessionId": "请先配置Session ID",
+    "configurationGuide": "📖 配置说明",
+    "installBrowserExtension": "1. 安装浏览器扩展获取Session ID",
+    "chromeExtension": "🔗 Chrome扩展",
+    "clickToInstallChrome": "点击安装Chrome扩展",
+    "edgeExtension": "🔗 Edge扩展",
+    "clickToInstallEdge": "点击安装Edge扩展",
+    "loading": "正在加载...",
+    "authenticationExpired": "❌ 认证失效",
+    "pleaseUpdateSessionId": "请更新Session ID",
+    "noSubscriptionPack": "无订阅包",
+    "subscriptionPack": "订阅包 {index}",
+    "active": "活跃",
+    "inactive": "未激活",
+    "unknownStatus": "未知状态",
+    "flashConsuming": "⚡ Flash消费中",
+    "expireAt": "Expire at {time}"
+  },
+  
+  "commands": {
+    "refreshUsageData": "TraeUsage: 刷新使用量数据",
+    "setSessionId": "TraeUsage: 设置Session ID",
+    "updateSessionId": "更新Session ID",
+    "refreshUsageDataTitle": "Refresh Usage Data",
+    "usageDataRefreshed": "使用量数据已刷新"
+  },
+  
+  "messages": {
+    "pleaseSetSessionId": "请先设置Trae AI Session ID",
+    "setSessionId": "设置Session ID",
+    "cannotGetToken": "无法获取Token，请检查Session ID是否正确",
+    "checkSessionIdCorrect": "检查Session ID是否正确",
+    "updateSessionId": "更新Session ID",
+    "authenticationExpired": "Trae AI认证已失效，请更新Session ID",
+    "pleaseUpdateSessionId": "请更新Session ID",
+    "getUsageDataFailed": "获取使用量数据失败: {error}",
+    "sessionIdAlreadySet": "已设置Session ID。失效可通过已安装Trae Usage浏览器扩展，访问官网获取最新Session ID。",
+    "sessionIdExpiredMessage": "已设置Session ID。失效可通过已安装Trae Usage浏览器扩展，访问官网获取最新Session ID。",
+    "visitOfficialUsagePage": "访问官网Usage页面",
+    "resetSessionId": "重新设置Session ID",
+    "pleaseInstallExtensionFirst": "请先安装Trae Usage浏览器扩展获取Session ID，安装后访问官网会自动获取。返回VSCode时会自动识别剪贴板中的Session ID。",
+    "installChromeExtension": "安装Chrome扩展",
+    "installEdgeExtension": "安装Edge扩展",
+    "clipboardSessionDetected": "检测到剪贴板中的Session ID:\n{sessionId}...\n\n是否更新为新的Session ID？",
+    "confirmUpdate": "确认更新",
+    "cancel": "取消",
+    "sessionIdAutoUpdated": "Session ID已自动更新",
+    "sameSessionIdDetected": "识别到相同的Session ID:\n{sessionId}...\n\n不会进行更新",
+    "noUpdateNeeded": "不会进行更新"
+  },
+  
+  "configuration": {
+    "title": "Trae Usage",
+    "sessionIdDescription": "Trae AI session ID (X-Cloudide-Session cookie value)",
+    "refreshIntervalDescription": "Refresh interval in minutes"
+  },
+  
+  "serviceTypes": {
+    "premiumFastRequest": "Premium Fast Request",
+    "premiumSlowRequest": "Premium Slow Request",
+    "autoCompletion": "Auto Completion",
+    "advancedModel": "Advanced Model"
+  }
+}
