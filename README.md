@@ -1,5 +1,7 @@
 # Trae Usage Monitor
 
+[English](README.en.md)
+
 一个VSCode扩展，用于实时监控Trae AI的使用量统计。
 
 ## 使用演示

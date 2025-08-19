@@ -1,5 +1,7 @@
 # Trae Usage Monitor
 
+[中文](README.md)
+
 A VSCode extension for real-time monitoring of Trae AI usage statistics.
 
 ## Demo
