@@ -4,11 +4,11 @@
 
 A VSCode extension for real-time monitoring of Trae AI usage statistics.
 
+<img src="img/image.png" alt="功能截图" height="300">
+
 ## Demo
 
-<div>
-  <img src="img/image.png" alt="Feature Screenshot" height="300">
-</div>
+<img src="img/traeusage_shot.gif" alt="feature screenshot" width="600">
 
 ## Installation and Usage
 

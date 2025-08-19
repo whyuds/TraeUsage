@@ -4,11 +4,11 @@
 
 一个VSCode扩展，用于实时监控Trae AI的使用量统计。
 
+<img src="img/image.png" alt="功能截图" height="300">
+
 ## 使用演示
 
-<div>
-  <img src="img/image.png" alt="功能截图" height="300">
-</div>
+<img src="img/traeusage_shot.gif" alt="功能截图" width="600">
 
 ## 安装和使用
 
