@@ -63,9 +63,9 @@ The extension provides the following configuration options:
 
 If you encounter any issues or have feature suggestions, please visit our GitHub project page:
 
-🔗 **Project Repository**: [https://github.com/whyuds/VSCodeExtentsions](https://github.com/whyuds/VSCodeExtentsions)
+🔗 **Project Repository**: [https://github.com/whyuds/TraeUsage](https://github.com/whyuds/TraeUsage)
 
-💬 **Issue Reporting**: Please submit [Issues](https://github.com/whyuds/VSCodeExtentsions/issues) on GitHub for any problems
+💬 **Issue Reporting**: Please submit [Issues](https://github.com/whyuds/TraeUsage/issues) on GitHub for any problems
 
 ## License
 
