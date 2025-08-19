@@ -1,4 +1,4 @@
 /node_modules/
 /.idea/
 trae-usage-monitor-*.vsix
-out/**
+out/
