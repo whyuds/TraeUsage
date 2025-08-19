@@ -1,6 +1,21 @@
 import * as vscode from 'vscode';
 import axios from 'axios';
 
+// 全局日志函数
+function logWithTime(message: string): void {
+  const now = new Date();
+  const timestamp = now.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  console.log(`[${timestamp}] ${message}`);
+}
+
 interface UsageData {
   advanced_model_amount: number;
   advanced_model_request_usage: number;
@@ -65,6 +80,8 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
   private retryTimer: NodeJS.Timeout | null = null;
   private isManualRefresh: boolean = false;
   private statusBarItem: vscode.StatusBarItem;
+  private cachedToken: string | null = null;
+  private cachedSessionId: string | null = null;
 
   private formatTimestamp(timestamp: number): string {
     const date = new Date(timestamp * 1000);
@@ -91,6 +108,9 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
 
   refresh(): void {
     this.isManualRefresh = true;
+    // 手动刷新时清除token缓存，确保获取最新数据
+    this.cachedToken = null;
+    this.cachedSessionId = null;
     this.fetchUsageData();
   }
 
@@ -279,7 +299,13 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
     return Promise.resolve([]);
   }
 
-  private async getTokenFromSession(sessionId: string): Promise<string | null> {
+  private async getTokenFromSession(sessionId: string, retryCount: number = 0): Promise<string | null> {
+    // 如果sessionId相同且已有缓存的token，直接返回缓存的token
+    if (this.cachedToken && this.cachedSessionId === sessionId) {
+      logWithTime('使用缓存的Token');
+      return this.cachedToken;
+    }
+
     try {
       const response = await axios.post<TokenResponse>(
         'https://api-sg-central.trae.ai/cloudide/api/v3/common/GetUserToken',
@@ -290,13 +316,33 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
             'Host': 'api-sg-central.trae.ai',
             'Content-Type': 'application/json'
           },
-          timeout: 10000
+          timeout: 3000
         }
       );
 
+      logWithTime('获取Token成功');
+      // 缓存token和sessionId
+      this.cachedToken = response.data.Result.Token;
+      this.cachedSessionId = sessionId;
       return response.data.Result.Token;
     } catch (error) {
-      console.error('获取Token失败:', error);
+      logWithTime(`获取Token失败 (尝试 ${retryCount + 1}/5): ${error}`);
+      
+      // 检查是否为超时错误或网络错误
+      const isRetryableError = error && (
+        (error as any).code === 'ECONNABORTED' || 
+        (error as any).message?.includes('timeout') ||
+        (error as any).code === 'ENOTFOUND' ||
+        (error as any).code === 'ECONNRESET'
+      );
+      
+      // 如果是可重试的错误且未达到最大重试次数，则进行重试
+      if (isRetryableError && retryCount < 5) {
+        logWithTime(`Token获取失败，将在1秒后进行第${retryCount + 1}次重试`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return this.getTokenFromSession(sessionId, retryCount + 1);
+      }
+      
       return null;
     }
   }
@@ -343,13 +389,19 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
             'Host': 'api-sg-central.trae.ai',
             'Content-Type': 'application/json'
           },
-          timeout: 10000
+          timeout: 3000
         }
       );
 
       this.usageData = response.data;
+      logWithTime('获取使用量数据成功');
       
       if (this.usageData?.code === 1001) {
+        // Token失效，清除缓存
+        logWithTime('Token已失效(code: 1001)，清除缓存');
+        this.cachedToken = null;
+        this.cachedSessionId = null;
+        
         if (this.isManualRefresh) {
           vscode.window.showErrorMessage('Trae AI认证已失效，请更新Session ID', '更新Session ID').then(selection => {
             if (selection === '更新Session ID') {
@@ -363,7 +415,7 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
       this.updateStatusBar();
       this.isManualRefresh = false;
     } catch (error) {
-      console.error('获取使用量数据失败:', error);
+      logWithTime(`获取使用量数据失败 (尝试 ${retryCount + 1}/5): ${error}`);
       
       // 检查是否为超时错误
       const isTimeoutError = error && ((error as any).code === 'ECONNABORTED' || (error as any).message?.includes('timeout'));
@@ -377,14 +429,14 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
         return;
       }
       
-      // 后台自动重试逻辑，最多重试2次
-      if (retryCount < 2) {
-        console.log(`API调用失败，将在10秒后进行第${retryCount + 1}次重试`);
+      // 后台自动重试逻辑，最多重试5次
+      if (retryCount < 5) {
+        logWithTime(`API调用失败，将在1秒后进行第${retryCount + 1}次重试`);
         this.retryTimer = setTimeout(() => {
           this.fetchUsageData(retryCount + 1);
-        }, 10000);
+        }, 1000);
       } else {
-        console.log('API调用失败，已达到最大重试次数，停止重试');
+        logWithTime('API调用失败，已达到最大重试次数，停止重试');
       }
     }
   }
@@ -472,7 +524,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
     } catch (error) {
       // 静默处理错误，避免干扰用户
-      console.log('剪贴板检测失败:', error);
+      logWithTime(`剪贴板检测失败: ${error}`);
     }
   }
 
