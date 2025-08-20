@@ -122,17 +122,33 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
       return;
     }
 
-    // 获取活跃订阅包的Premium Fast Request数据
-    const activePack = this.usageData.user_entitlement_pack_list.find(pack => pack.status === 1);
-    if (activePack) {
-      const usage = activePack.usage.premium_model_fast_request_usage;
-      const limit = activePack.entitlement_base_info.quota.premium_model_fast_request_limit;
-      const remaining = limit - usage;
-      const percentage = limit > 0 ? Math.round((usage / limit) * 100) : 0;
-      const expireDate = this.formatTimestamp(activePack.entitlement_base_info.end_time);
+    // 计算所有订阅包的Premium Fast Request总数据
+    let totalUsage = 0;
+    let totalLimit = 0;
+    let hasValidPacks = false;
+    const packDetails: string[] = [];
+
+    this.usageData.user_entitlement_pack_list.forEach((pack, index) => {
+      const usage = pack.usage.premium_model_fast_request_usage;
+      const limit = pack.entitlement_base_info.quota.premium_model_fast_request_limit;
       
-      this.statusBarItem.text = `$(zap) Fast: ${usage}/${limit} (${t('statusBar.remaining', { remaining: remaining.toString() })})`;
-      this.statusBarItem.tooltip = `${t('serviceTypes.premiumFastRequest')}\n${t('statusBar.used', { used: usage.toString() })}\n${t('statusBar.totalQuota', { total: limit.toString() })}\n${t('statusBar.remaining', { remaining: remaining.toString() })}\n${t('statusBar.usageRate', { rate: percentage.toString() })}\n${t('statusBar.expireTime', { time: expireDate })}`;
+      if (limit > 0) {
+        totalUsage += usage;
+        totalLimit += limit;
+        hasValidPacks = true;
+        
+        const expireDate = this.formatTimestamp(pack.entitlement_base_info.end_time);
+        const status = pack.status === 1 ? t('treeView.active') : t('treeView.inactive');
+        packDetails.push(`${t('treeView.subscriptionPack', { index: (index + 1).toString() })} (${status}): ${usage}/${limit} - ${t('statusBar.expireTime', { time: expireDate })}`);
+      }
+    });
+
+    if (hasValidPacks) {
+      const remaining = totalLimit - totalUsage;
+      const percentage = totalLimit > 0 ? Math.round((totalUsage / totalLimit) * 100) : 0;
+      
+      this.statusBarItem.text = `$(zap) Fast: ${totalUsage}/${totalLimit} (${t('statusBar.remaining', { remaining: remaining.toString() })})`;
+      this.statusBarItem.tooltip = `${t('serviceTypes.premiumFastRequest')} (${t('statusBar.totalQuota', { total: 'All Subscriptions' })})\n${t('statusBar.used', { used: totalUsage.toString() })}\n${t('statusBar.totalQuota', { total: totalLimit.toString() })}\n${t('statusBar.remaining', { remaining: remaining.toString() })}\n${t('statusBar.usageRate', { rate: percentage.toString() })}\n\n${packDetails.join('\n')}`;
     } else {
       this.statusBarItem.text = t('statusBar.noActiveSubscription');
       this.statusBarItem.tooltip = t('statusBar.noActiveSubscriptionTooltip');
