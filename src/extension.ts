@@ -516,6 +516,9 @@ export function activate(context: vscode.ExtensionContext) {
     showCollapseAll: true
   });
 
+  // 记录已经提醒过的相同Session ID，避免重复提醒
+  let lastNotifiedSameSessionId: string | null = null;
+
   // 剪贴板检测功能
   async function checkClipboardForSession() {
     try {
@@ -540,11 +543,17 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showInformationMessage(t('messages.sessionIdAutoUpdated'));
             provider.refresh();
           }
+          // 重置已提醒的Session ID，因为检测到了不同的Session ID
+          lastNotifiedSameSessionId = null;
         } else {
-          // 如果Session ID相同，提示用户识别到相同的Session ID
-          vscode.window.showInformationMessage(
-            t('messages.sameSessionIdDetected', { sessionId: sessionId.substring(0, 20) })
-          );
+          // 如果Session ID相同，且之前没有提醒过这个Session ID，则提示用户
+          if (lastNotifiedSameSessionId !== sessionId) {
+            vscode.window.showInformationMessage(
+              t('messages.sameSessionIdDetected', { sessionId: sessionId.substring(0, 20) })
+            );
+            // 记录已经提醒过的Session ID
+            lastNotifiedSameSessionId = sessionId;
+          }
         }
       }
     } catch (error) {
