@@ -24,7 +24,7 @@ Search for "Trae Usage" in the Trae marketplace.
 1. Install Chrome Extension: [Trae Usage Token Extractor](https://chromewebstore.google.com/detail/edkpaodbjadikhahggapfilgmfijjhei?utm_source=item-share-cb)
 
 **Edge Browser:**
-1. Install Edge Extension: [Trae Usage Token Extractor](https://microsoftedge.microsoft.com/addons/detail/webelementtracker/leopdblngeedggognlgokdlfpiojalji)
+1. Install Edge Extension: [Trae Usage Token Extractor](https://microsoftedge.microsoft.com/addons/detail/trae-usage-token-extracto/leopdblngeedggognlgokdlfpiojalji)
 
 **Usage Steps:**
 1. After installation, navigate to install Chrome extension through notifications or TraeUsage window settings

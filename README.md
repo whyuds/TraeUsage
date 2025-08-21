@@ -24,7 +24,7 @@ Trae的应用市场搜索Trae Usage
 1. 安装Chrome扩展：[Trae Usage Token Extractor](https://chromewebstore.google.com/detail/edkpaodbjadikhahggapfilgmfijjhei?utm_source=item-share-cb)
 
 **Edge浏览器：**
-1. 安装Edge扩展：[Trae Usage Token Extractor](https://microsoftedge.microsoft.com/addons/detail/webelementtracker/leopdblngeedggognlgokdlfpiojalji)
+1. 安装Edge扩展：[Trae Usage Token Extractor](https://microsoftedge.microsoft.com/addons/detail/trae-usage-token-extracto/leopdblngeedggognlgokdlfpiojalji)
 
 **使用步骤：**
 1. 安装后通过通知或TraeUsage窗口设置跳转安装Chrome扩展

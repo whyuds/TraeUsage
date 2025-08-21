@@ -178,7 +178,7 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
         new UsageItem(t('treeView.edgeExtension'), t('treeView.clickToInstallEdge'), vscode.TreeItemCollapsibleState.None, {
           command: 'vscode.open',
           title: t('commands.setSessionId'),
-          arguments: [vscode.Uri.parse('https://microsoftedge.microsoft.com/addons/detail/trae-ai-session-extractor/abcdefghijklmnopqrstuvwxyz123456')]
+          arguments: [vscode.Uri.parse('https://microsoftedge.microsoft.com/addons/detail/trae-usage-token-extracto/leopdblngeedggognlgokdlfpiojalji')]
         })
       ]);
     }
@@ -627,7 +627,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
     
     if (choice === t('messages.installEdgeExtension')) {
-      vscode.env.openExternal(vscode.Uri.parse('https://microsoftedge.microsoft.com/addons/detail/trae-usage-monitor/your-edge-extension-id'));
+      vscode.env.openExternal(vscode.Uri.parse('https://microsoftedge.microsoft.com/addons/detail/trae-usage-token-extracto/leopdblngeedggognlgokdlfpiojalji'));
       return;
     }
   });
