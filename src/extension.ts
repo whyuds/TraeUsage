@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as os from 'os';
+import * as cp from 'child_process';
 import axios from 'axios';
 import { initializeI18n, t } from './i18n';
 
@@ -16,6 +18,80 @@ function logWithTime(message: string): void {
     hour12: false
   });
   console.log(`[${timestamp}] ${message}`);
+}
+
+// 检测默认浏览器类型
+async function detectDefaultBrowser(): Promise<'chrome' | 'edge' | 'unknown'> {
+  const platform = os.platform();
+  
+  try {
+    if (platform === 'win32') {
+      // Windows: 通过注册表查询默认浏览器
+      return new Promise((resolve) => {
+        cp.exec('reg query "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\http\\UserChoice" /v ProgId', 
+          (error, stdout) => {
+            if (error) {
+              logWithTime(`检测浏览器失败: ${error.message}`);
+              resolve('unknown');
+              return;
+            }
+            
+            const progId = stdout.toLowerCase();
+            if (progId.includes('chrome')) {
+              resolve('chrome');
+            } else if (progId.includes('edge') || progId.includes('msedge')) {
+              resolve('edge');
+            } else {
+              resolve('unknown');
+            }
+          });
+      });
+    } else if (platform === 'darwin') {
+      // macOS: 通过系统偏好设置查询
+      return new Promise((resolve) => {
+        cp.exec('defaults read com.apple.LaunchServices/com.apple.launchservices.secure LSHandlers | grep -A 2 -B 2 "LSHandlerURLScheme.*http"', 
+          (error, stdout) => {
+            if (error) {
+              logWithTime(`检测浏览器失败: ${error.message}`);
+              resolve('unknown');
+              return;
+            }
+            
+            const output = stdout.toLowerCase();
+            if (output.includes('chrome')) {
+              resolve('chrome');
+            } else if (output.includes('edge') || output.includes('msedge')) {
+              resolve('edge');
+            } else {
+              resolve('unknown');
+            }
+          });
+      });
+    } else {
+      // Linux: 通过环境变量或xdg查询
+      return new Promise((resolve) => {
+        cp.exec('xdg-settings get default-web-browser', (error, stdout) => {
+          if (error) {
+            logWithTime(`检测浏览器失败: ${error.message}`);
+            resolve('unknown');
+            return;
+          }
+          
+          const browser = stdout.toLowerCase();
+          if (browser.includes('chrome')) {
+            resolve('chrome');
+          } else if (browser.includes('edge') || browser.includes('msedge')) {
+            resolve('edge');
+          } else {
+            resolve('unknown');
+          }
+        });
+      });
+    }
+  } catch (error) {
+    logWithTime(`检测浏览器异常: ${error}`);
+    return 'unknown';
+  }
 }
 
 interface UsageData {
@@ -73,9 +149,7 @@ interface TokenResponse {
   };
 }
 
-class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
-  private _onDidChangeTreeData: vscode.EventEmitter<UsageItem | undefined | null | void> = new vscode.EventEmitter<UsageItem | undefined | null | void>();
-  readonly onDidChangeTreeData: vscode.Event<UsageItem | undefined | null | void> = this._onDidChangeTreeData.event;
+class TraeUsageProvider {
 
   private usageData: ApiResponse | null = null;
   private refreshTimer: NodeJS.Timeout | null = null;
@@ -84,6 +158,14 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
   private statusBarItem: vscode.StatusBarItem;
   private cachedToken: string | null = null;
   private cachedSessionId: string | null = null;
+  
+  // 单击/双击检测相关
+  private clickTimer: NodeJS.Timeout | null = null;
+  private clickCount: number = 0;
+  private readonly DOUBLE_CLICK_DELAY = 300; // 双击检测延迟 (毫秒)
+  
+  // Loading 状态相关
+  private isRefreshing: boolean = false;
 
   private formatTimestamp(timestamp: number): string {
     const date = new Date(timestamp * 1000);
@@ -100,7 +182,7 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
   constructor(private context: vscode.ExtensionContext) {
     // 创建状态栏项
     this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    this.statusBarItem.command = 'traeUsage.refresh';
+    this.statusBarItem.command = 'traeUsage.handleStatusBarClick';  // 使用新的点击处理命令
     this.statusBarItem.show();
     this.updateStatusBar();
     
@@ -108,19 +190,162 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
     this.fetchUsageData();
   }
 
+  // 处理状态栏点击事件
+  handleStatusBarClick(): void {
+    // 如果正在刷新，禁用点击
+    if (this.isRefreshing) {
+      return;
+    }
+    
+    this.clickCount++;
+    
+    if (this.clickTimer) {
+      // 如果已有定时器，说明这是第二次点击（双击）
+      clearTimeout(this.clickTimer);
+      this.clickTimer = null;
+      this.clickCount = 0;
+      
+      // 执行双击操作：打开设置
+      this.openSettings();
+    } else {
+      // 第一次点击，启动定时器
+      this.clickTimer = setTimeout(() => {
+        if (this.clickCount === 1) {
+          // 单击操作：刷新
+          this.refresh();
+        }
+        this.clickCount = 0;
+        this.clickTimer = null;
+      }, this.DOUBLE_CLICK_DELAY);
+    }
+  }
+
+  // 打开设置
+  private openSettings(): void {
+    vscode.commands.executeCommand('traeUsage.updateSession');
+  }
+
   refresh(): void {
     this.isManualRefresh = true;
+    this.isRefreshing = true;
+    
+    // 设置 loading 状态
+    this.setLoadingState();
+    
     // 手动刷新时清除token缓存，确保获取最新数据
     this.cachedToken = null;
     this.cachedSessionId = null;
     this.fetchUsageData();
   }
 
+  // 设置 loading 状态
+  private setLoadingState(): void {
+    this.statusBarItem.text = t('statusBar.loading');
+    this.statusBarItem.tooltip = t('statusBar.refreshing');
+    this.statusBarItem.color = undefined;
+  }
+
+  // 构建详细的 tooltip 信息
+  private buildDetailedTooltip(): string {
+    if (!this.usageData || this.usageData.code === 1001) {
+      return t('statusBar.clickToConfigureSession') + '\n\n' + t('statusBar.clickActions');
+    }
+
+    const sections: string[] = [];
+    
+    // 标题
+    sections.push('🚀 Trae AI 使用量详情');
+    sections.push('═'.repeat(30));
+
+    // 遍历所有订阅包
+    this.usageData.user_entitlement_pack_list.forEach((pack, index) => {
+      const usage = pack.usage;
+      const quota = pack.entitlement_base_info.quota;
+      const statusText = pack.status === 1 ? '🟢 活跃' : '🔴 未激活';
+      const expireDate = this.formatTimestamp(pack.entitlement_base_info.end_time);
+      
+      sections.push(`📦 订阅包 ${index + 1} (${statusText})`);
+      sections.push(`⏰ 过期时间: ${expireDate}`);
+      sections.push('');
+
+      // Premium Fast Request
+      if (quota.premium_model_fast_request_limit !== 0) {
+        const used = usage.premium_model_fast_request_usage;
+        const limit = quota.premium_model_fast_request_limit;
+        const remaining = limit === -1 ? '∞' : (limit - used);
+        const percentage = limit === -1 ? 0 : Math.round((used / limit) * 100);
+        sections.push(`⚡ Premium Fast Request:`);
+        sections.push(`   已使用: ${used} | 总配额: ${limit === -1 ? '∞' : limit} | 剩余: ${remaining}`);
+        if (limit !== -1) {
+          sections.push(`   使用率: ${percentage}%`);
+        }
+      }
+
+      // Premium Slow Request
+      if (quota.premium_model_slow_request_limit !== 0) {
+        const used = usage.premium_model_slow_request_usage;
+        const limit = quota.premium_model_slow_request_limit;
+        const remaining = limit === -1 ? '∞' : (limit - used);
+        const percentage = limit === -1 ? 0 : Math.round((used / limit) * 100);
+        sections.push(`🐌 Premium Slow Request:`);
+        sections.push(`   已使用: ${used} | 总配额: ${limit === -1 ? '∞' : limit} | 剩余: ${remaining}`);
+        if (limit !== -1) {
+          sections.push(`   使用率: ${percentage}%`);
+        }
+      }
+
+      // Auto Completion
+      if (quota.auto_completion_limit !== 0) {
+        const used = usage.auto_completion_usage;
+        const limit = quota.auto_completion_limit;
+        const remaining = limit === -1 ? '∞' : (limit - used);
+        const percentage = limit === -1 ? 0 : Math.round((used / limit) * 100);
+        sections.push(`🔧 Auto Completion:`);
+        sections.push(`   已使用: ${used} | 总配额: ${limit === -1 ? '∞' : limit} | 剩余: ${remaining}`);
+        if (limit !== -1) {
+          sections.push(`   使用率: ${percentage}%`);
+        }
+      }
+
+      // Advanced Model
+      if (quota.advanced_model_request_limit !== 0) {
+        const used = usage.advanced_model_request_usage;
+        const limit = quota.advanced_model_request_limit;
+        const remaining = limit === -1 ? '∞' : (limit - used);
+        const percentage = limit === -1 ? 0 : Math.round((used / limit) * 100);
+        sections.push(`🚀 Advanced Model:`);
+        sections.push(`   已使用: ${used} | 总配额: ${limit === -1 ? '∞' : limit} | 剩余: ${remaining}`);
+        if (limit !== -1) {
+          sections.push(`   使用率: ${percentage}%`);
+        }
+      }
+
+      // Flash Consuming 状态
+      if (usage.is_flash_consuming) {
+        sections.push(`⚡ Flash 消费中`);
+      }
+
+      // 订阅包分隔线
+      if (this.usageData && index < this.usageData.user_entitlement_pack_list.length - 1) {
+        sections.push('');
+        sections.push('-'.repeat(30));
+        sections.push('');
+      }
+    });
+
+    // 操作提示
+    sections.push('');
+    sections.push('═'.repeat(30));
+    sections.push(t('statusBar.clickActions'));
+
+    return sections.join('\n');
+  }
+
   private updateStatusBar(): void {
     if (!this.usageData || this.usageData.code === 1001) {
       this.statusBarItem.text = t('statusBar.notConfigured');
       this.statusBarItem.color = undefined;
-      this.statusBarItem.tooltip = t('statusBar.clickToConfigureSession');
+      this.statusBarItem.tooltip = t('statusBar.clickToConfigureSession') + '\n\n' + t('statusBar.clickActions');
       return;
     }
 
@@ -154,174 +379,17 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
       const textPart = ` Fast: ${totalUsage}/${totalLimit} (${t('statusBar.remaining', { remaining: remaining.toString() })})`;
       this.statusBarItem.text = lightningIcon + textPart;
       this.statusBarItem.color = undefined;
-      this.statusBarItem.tooltip = `${t('serviceTypes.premiumFastRequest')} (${t('statusBar.totalQuota', { total: 'All Subscriptions' })})\n${t('statusBar.used', { used: totalUsage.toString() })}\n${t('statusBar.totalQuota', { total: totalLimit.toString() })}\n${t('statusBar.remaining', { remaining: remaining.toString() })}\n${t('statusBar.usageRate', { rate: percentage.toString() })}\n\n${packDetails.join('\n')}`;
+      // 构建详细的 tooltip 信息
+      let detailsTooltip = this.buildDetailedTooltip();
+      this.statusBarItem.tooltip = detailsTooltip;
     } else {
       this.statusBarItem.text = t('statusBar.noActiveSubscription');
       this.statusBarItem.color = undefined;
-      this.statusBarItem.tooltip = t('statusBar.noActiveSubscriptionTooltip');
+      this.statusBarItem.tooltip = t('statusBar.noActiveSubscriptionTooltip') + '\n\n' + t('statusBar.clickActions');
     }
   }
 
-  getTreeItem(element: UsageItem): vscode.TreeItem {
-    return element;
-  }
 
-  getChildren(element?: UsageItem): Thenable<UsageItem[]> {
-    const config = vscode.workspace.getConfiguration('traeUsage');
-    const sessionId = config.get<string>('sessionId');
-    
-    if (!sessionId) {
-      return Promise.resolve([
-        new UsageItem(t('treeView.notConfiguredSessionId'), t('treeView.pleaseConfigureSessionId'), vscode.TreeItemCollapsibleState.None, {
-          command: 'traeUsage.updateSession',
-          title: t('commands.setSessionId')
-        }),
-        new UsageItem(t('treeView.configurationGuide'), t('treeView.installBrowserExtension'), vscode.TreeItemCollapsibleState.None),
-        new UsageItem(t('treeView.chromeExtension'), t('treeView.clickToInstallChrome'), vscode.TreeItemCollapsibleState.None, {
-          command: 'vscode.open',
-          title: t('commands.setSessionId'),
-          arguments: [vscode.Uri.parse('https://chromewebstore.google.com/detail/trae-ai-session-extractor/eejeaklkdnkdlcfnpbkdlbpbkdlbpbkd')]
-        }),
-        new UsageItem(t('treeView.edgeExtension'), t('treeView.clickToInstallEdge'), vscode.TreeItemCollapsibleState.None, {
-          command: 'vscode.open',
-          title: t('commands.setSessionId'),
-          arguments: [vscode.Uri.parse('https://microsoftedge.microsoft.com/addons/detail/trae-usage-token-extracto/leopdblngeedggognlgokdlfpiojalji')]
-        })
-      ]);
-    }
-    
-    if (!this.usageData) {
-      return Promise.resolve([new UsageItem(t('treeView.loading'), '', vscode.TreeItemCollapsibleState.None)]);
-    }
-
-    if (this.usageData.code === 1001) {
-      return Promise.resolve([
-        new UsageItem(t('treeView.authenticationExpired'), t('treeView.pleaseUpdateSessionId'), vscode.TreeItemCollapsibleState.None, {
-          command: 'traeUsage.updateSession',
-          title: t('commands.updateSessionId')
-        })
-      ]);
-    }
-
-    if (!element) {
-      // 根节点
-      const items: UsageItem[] = [];
-      
-      // 显示所有订阅包
-      const allPacks = this.usageData.user_entitlement_pack_list;
-      
-      if (allPacks.length === 0) {
-        items.push(new UsageItem(t('treeView.noSubscriptionPack'), '', vscode.TreeItemCollapsibleState.None));
-        return Promise.resolve(items);
-      }
-
-      allPacks.forEach((pack, index) => {
-        const usage = pack.usage;
-        const quota = pack.entitlement_base_info.quota;
-        const statusText = pack.status === 1 ? t('treeView.active') : pack.status === 0 ? t('treeView.inactive') : t('treeView.unknownStatus');
-        const statusIcon = pack.status === 1 ? '🟢' : '🔴';
-        const expireDate = this.formatTimestamp(pack.entitlement_base_info.end_time);
-        const tooltip = t('treeView.expireAt', { time: expireDate });
-        
-        items.push(new UsageItem(
-          `${statusIcon} ${t('treeView.subscriptionPack', { index: (index + 1).toString() })}`,
-          statusText,
-          vscode.TreeItemCollapsibleState.Expanded,
-          undefined,
-          `pack-${index}`,
-          tooltip
-        ));
-      });
-
-      return Promise.resolve(items);
-    } else if (element.contextValue?.startsWith('pack-')) {
-      // 订阅包详情
-      const packIndex = parseInt(element.contextValue.split('-')[1]);
-      const pack = this.usageData.user_entitlement_pack_list[packIndex];
-      
-      if (!pack) {
-        return Promise.resolve([]);
-      }
-
-      const usage = pack.usage;
-      const quota = pack.entitlement_base_info.quota;
-      const expireDate = this.formatTimestamp(pack.entitlement_base_info.end_time);
-      const tooltip = t('treeView.expireAt', { time: expireDate });
-      const items: UsageItem[] = [];
-
-      // Premium Fast Request
-      if (quota.premium_model_fast_request_limit !== 0) {
-        const used = usage.premium_model_fast_request_usage;
-        const remaining = quota.premium_model_fast_request_limit === -1 ? '∞' : (quota.premium_model_fast_request_limit - used).toString();
-        
-        items.push(new UsageItem(
-          `⚡ ${used} / ${remaining === '∞' ? '∞' : quota.premium_model_fast_request_limit}`,
-          t('serviceTypes.premiumFastRequest'),
-          vscode.TreeItemCollapsibleState.None,
-          undefined,
-          undefined,
-          tooltip
-        ));
-      }
-
-      // Premium Slow Request
-      if (quota.premium_model_slow_request_limit !== 0) {
-        const used = usage.premium_model_slow_request_usage;
-        const remaining = quota.premium_model_slow_request_limit === -1 ? '∞' : (quota.premium_model_slow_request_limit - used).toString();
-        
-        items.push(new UsageItem(
-          `🐌 ${used} / ${remaining === '∞' ? '∞' : quota.premium_model_slow_request_limit}`,
-          t('serviceTypes.premiumSlowRequest'),
-          vscode.TreeItemCollapsibleState.None,
-          undefined,
-          undefined,
-          tooltip
-        ));
-      }
-
-      // Auto Completion
-      if (quota.auto_completion_limit !== 0) {
-        const used = usage.auto_completion_usage;
-        const remaining = quota.auto_completion_limit === -1 ? '∞' : (quota.auto_completion_limit - used).toString();
-        
-        items.push(new UsageItem(
-          `🔧 ${used} / ${remaining === '∞' ? '∞' : quota.auto_completion_limit}`,
-          t('serviceTypes.autoCompletion'),
-          vscode.TreeItemCollapsibleState.None,
-          undefined,
-          undefined,
-          tooltip
-        ));
-      }
-
-      // Advanced Model
-      if (quota.advanced_model_request_limit !== 0) {
-        const used = usage.advanced_model_request_usage;
-        const remaining = quota.advanced_model_request_limit === -1 ? '∞' : (quota.advanced_model_request_limit - used).toString();
-        
-        items.push(new UsageItem(
-          `🚀 ${used} / ${remaining === '∞' ? '∞' : quota.advanced_model_request_limit}`,
-          t('serviceTypes.advancedModel'),
-          vscode.TreeItemCollapsibleState.None,
-          undefined,
-          undefined,
-          tooltip
-        ));
-      }
-
-      if (usage.is_flash_consuming) {
-        items.push(new UsageItem(
-          t('treeView.flashConsuming'),
-          '',
-          vscode.TreeItemCollapsibleState.None
-        ));
-      }
-
-      return Promise.resolve(items);
-    }
-
-    return Promise.resolve([]);
-  }
 
   private async getTokenFromSession(sessionId: string, retryCount: number = 0): Promise<string | null> {
     // 如果sessionId相同且已有缓存的token，直接返回缓存的token
@@ -371,7 +439,7 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
     }
   }
 
-  private async fetchUsageData(retryCount: number = 0): Promise<void> {
+  async fetchUsageData(retryCount: number = 0): Promise<void> {
     try {
       const config = vscode.workspace.getConfiguration('traeUsage');
       const sessionId = config.get<string>('sessionId');
@@ -383,6 +451,8 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
               vscode.commands.executeCommand('traeUsage.updateSession');
             }
           });
+          this.isRefreshing = false;  // 重置 loading 状态
+          this.updateStatusBar();  // 恢复正常状态栏显示
         }
         this.isManualRefresh = false;
         return;
@@ -397,6 +467,8 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
               vscode.commands.executeCommand('traeUsage.updateSession');
             }
           });
+          this.isRefreshing = false;  // 重置 loading 状态
+          this.updateStatusBar();  // 恢复正常状态栏显示
         }
         this.isManualRefresh = false;
         return;
@@ -432,24 +504,25 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
               vscode.commands.executeCommand('traeUsage.updateSession');
             }
           });
+          this.isRefreshing = false;  // 重置 loading 状态
         }
       }
 
-      this._onDidChangeTreeData.fire();
       this.updateStatusBar();
       this.isManualRefresh = false;
+      this.isRefreshing = false;  // 重置 loading 状态
     } catch (error) {
       logWithTime(`获取使用量数据失败 (尝试 ${retryCount + 1}/5): ${error}`);
       
       // 检查是否为超时错误
       const isTimeoutError = error && ((error as any).code === 'ECONNABORTED' || (error as any).message?.includes('timeout'));
       
-      // 如果是手动刷新失败，只有非超时错误才通知用户
+      // 如果是手动刷新失败，通知用户并重置状态
       if (this.isManualRefresh) {
-        if (!isTimeoutError) {
-          vscode.window.showErrorMessage(t('messages.getUsageDataFailed', { error: error?.toString() || 'Unknown error' }));
-        }
+        vscode.window.showErrorMessage(t('messages.getUsageDataFailed', { error: error?.toString() || 'Unknown error' }));
         this.isManualRefresh = false;
+        this.isRefreshing = false;  // 重置 loading 状态
+        this.updateStatusBar();  // 恢复正常状态栏显示
         return;
       }
       
@@ -490,38 +563,22 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
     if (this.retryTimer) {
       clearTimeout(this.retryTimer);
     }
+    if (this.clickTimer) {
+      clearTimeout(this.clickTimer);
+    }
     if (this.statusBarItem) {
       this.statusBarItem.dispose();
     }
   }
 }
 
-class UsageItem extends vscode.TreeItem {
-  constructor(
-    public readonly label: string,
-    public readonly description: string,
-    public readonly collapsibleState: vscode.TreeItemCollapsibleState,
-    public readonly command?: vscode.Command,
-    public readonly contextValue?: string,
-    public readonly customTooltip?: string
-  ) {
-    super(label, collapsibleState);
-    this.description = description;
-    this.tooltip = customTooltip || `${this.label}: ${this.description}`;
-  }
-}
+
 
 export function activate(context: vscode.ExtensionContext) {
   // 初始化国际化系统
   initializeI18n();
   
   const provider = new TraeUsageProvider(context);
-  
-  // 注册树视图
-  vscode.window.createTreeView('traeUsageView', {
-    treeDataProvider: provider,
-    showCollapseAll: true
-  });
 
   // 记录已经提醒过的相同Session ID，避免重复提醒
   let lastNotifiedSameSessionId: string | null = null;
@@ -586,60 +643,56 @@ export function activate(context: vscode.ExtensionContext) {
     }
     if (e.affectsConfiguration('traeUsage.language')) {
       initializeI18n();
-      provider.refresh();
+      // 重新获取数据以更新状态栏显示
+      provider.fetchUsageData();
     }
+  });
+
+  // 注册状态栏点击处理命令
+  const handleStatusBarClickCommand = vscode.commands.registerCommand('traeUsage.handleStatusBarClick', () => {
+    provider.handleStatusBarClick();
   });
 
   // 注册刷新命令
   const refreshCommand = vscode.commands.registerCommand('traeUsage.refresh', () => {
     provider.refresh();
-    vscode.window.showInformationMessage(t('commands.usageDataRefreshed'));
+    // 移除成功通知，只在失败时通知用户
   });
 
   // 注册更新Session ID命令
   const updateSessionCommand = vscode.commands.registerCommand('traeUsage.updateSession', async () => {
-    const config = vscode.workspace.getConfiguration('traeUsage');
-    const currentSessionId = config.get<string>('sessionId');
+    // 检测默认浏览器
+    const defaultBrowser = await detectDefaultBrowser();
+    logWithTime(`更新Session时检测到默认浏览器: ${defaultBrowser}`);
     
-    // 如果已经设置过session，提示跳转到官网usage页面
-    if (currentSessionId) {
-      const choice = await vscode.window.showInformationMessage(
-        t('messages.sessionIdExpiredMessage'),
-        t('messages.visitOfficialUsagePage'),
-        t('messages.resetSessionId')
-      );
-      
-      if (choice === t('messages.visitOfficialUsagePage')) {
-        vscode.env.openExternal(vscode.Uri.parse('https://www.trae.ai/account-setting#usage'));
-        return;
-      }
-      
-      if (choice === t('messages.resetSessionId')) {
-        // 继续执行下面的设置流程
-      } else {
-        return;
-      }
+    // 根据默认浏览器设置扩展链接
+    let extensionUrl: string;
+    if (defaultBrowser === 'edge') {
+      extensionUrl = 'https://microsoftedge.microsoft.com/addons/detail/trae-usage-token-extracto/leopdblngeedggognlgokdlfpiojalji';
+    } else {
+      // Chrome 或未知浏览器默认使用 Chrome 扩展
+      extensionUrl = 'https://chromewebstore.google.com/detail/edkpaodbjadikhahggapfilgmfijjhei';
     }
     
-    // 未设置session或选择重新设置时，提供扩展下载选项
+    // 显示简化的通知
     const choice = await vscode.window.showInformationMessage(
-      t('messages.pleaseInstallExtensionFirst'),
-      t('messages.installChromeExtension'),
-      t('messages.installEdgeExtension')
+      t('messages.sessionConfigurationMessage'),
+      t('messages.visitOfficialUsagePage'),
+      t('messages.installBrowserExtension')
     );
     
-    if (choice === t('messages.installChromeExtension')) {
-      vscode.env.openExternal(vscode.Uri.parse('https://chromewebstore.google.com/detail/edkpaodbjadikhahggapfilgmfijjhei'));
+    if (choice === t('messages.visitOfficialUsagePage')) {
+      vscode.env.openExternal(vscode.Uri.parse('https://www.trae.ai/account-setting#usage'));
       return;
     }
     
-    if (choice === t('messages.installEdgeExtension')) {
-      vscode.env.openExternal(vscode.Uri.parse('https://microsoftedge.microsoft.com/addons/detail/trae-usage-token-extracto/leopdblngeedggognlgokdlfpiojalji'));
+    if (choice === t('messages.installBrowserExtension')) {
+      vscode.env.openExternal(vscode.Uri.parse(extensionUrl));
       return;
     }
   });
 
-  context.subscriptions.push(refreshCommand, updateSessionCommand, provider, windowStateListener, configListener);
+  context.subscriptions.push(handleStatusBarClickCommand, refreshCommand, updateSessionCommand, provider, windowStateListener, configListener);
 }
 
 export function deactivate() {}

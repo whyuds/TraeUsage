@@ -8,7 +8,10 @@
     "used": "Used: {used}",
     "totalQuota": "Total Quota: {total}",
     "usageRate": "Usage Rate: {rate}%",
-    "expireTime": "Expire Time: {time}"
+    "expireTime": "Expire Time: {time}",
+    "loading": "$(sync~spin) Refreshing...",
+    "clickActions": "Single click to refresh | Double click for settings",
+    "refreshing": "Refreshing usage data, please wait..."
   },
   
   "treeView": {
@@ -61,7 +64,9 @@
     "cancel": "Cancel",
     "sessionIdAutoUpdated": "Session ID automatically updated",
     "sameSessionIdDetected": "Same Session ID detected:\n{sessionId}...\n\nNo update needed",
-    "noUpdateNeeded": "No update needed"
+    "noUpdateNeeded": "No update needed",
+    "sessionConfigurationMessage": "Please configure Trae AI Session ID. You can visit the official usage page or install browser extension to get it.",
+    "installBrowserExtension": "Install Browser Extension"
   },
   
   "configuration": {

@@ -8,7 +8,10 @@
     "used": "已使用: {used}",
     "totalQuota": "总配额: {total}",
     "usageRate": "使用率: {rate}%",
-    "expireTime": "过期时间: {time}"
+    "expireTime": "过期时间: {time}",
+    "loading": "$(sync~spin) 正在刷新...",
+    "clickActions": "单击刷新 | 双击设置",
+    "refreshing": "正在刷新使用量数据，请稍候..."
   },
   
   "treeView": {
@@ -61,7 +64,9 @@
     "cancel": "取消",
     "sessionIdAutoUpdated": "Session ID已自动更新",
     "sameSessionIdDetected": "识别到相同的Session ID:\n{sessionId}...\n\n不会进行更新",
-    "noUpdateNeeded": "不会进行更新"
+    "noUpdateNeeded": "不会进行更新",
+    "sessionConfigurationMessage": "请配置 Trae AI Session ID。您可以访问官方使用量页面或安装浏览器扩展来获取。",
+    "installBrowserExtension": "安装浏览器扩展"
   },
   
   "configuration": {

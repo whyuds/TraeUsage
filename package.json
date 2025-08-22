@@ -33,29 +33,7 @@
         "icon": "$(settings-gear)"
       }
     ],
-    "views": {
-      "explorer": [
-        {
-          "id": "traeUsageView",
-          "name": "%views.traeUsageView.name%",
-          "when": "true"
-        }
-      ]
-    },
-    "menus": {
-      "view/title": [
-        {
-          "command": "traeUsage.refresh",
-          "when": "view == traeUsageView",
-          "group": "navigation"
-        },
-        {
-          "command": "traeUsage.updateSession",
-          "when": "view == traeUsageView",
-          "group": "navigation"
-        }
-      ]
-    },
+
     "configuration": {
       "title": "%configuration.title%",
       "properties": {
