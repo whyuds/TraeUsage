@@ -165,7 +165,15 @@ class TraeUsageProvider {
   }
 
   private initialize(): void {
-    this.updateStatusBar();
+    const sessionId = this.getSessionId();
+
+    if (sessionId) {
+      this.isRefreshing = true;
+      this.setLoadingState();
+    } else {
+      this.updateStatusBar();
+    }
+
     this.startAutoRefresh();
     this.fetchUsageData();
   }
@@ -222,7 +230,12 @@ class TraeUsageProvider {
   // ==================== 状态栏更新 ====================
   private updateStatusBar(): void {
     if (!this.usageData || this.usageData.code === 1001) {
-      this.showNotConfiguredStatus();
+      const sessionId = this.getSessionId();
+      if (!sessionId) {
+        this.showNotConfiguredStatus();
+      }
+      // If a session ID exists but data is invalid, do nothing.
+      // This preserves the 'Refreshing...' or previous state.
       return;
     }
 
