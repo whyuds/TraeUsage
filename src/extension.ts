@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import axios from 'axios';
 import { initializeI18n, t } from './i18n';
 
@@ -118,6 +119,7 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
   private updateStatusBar(): void {
     if (!this.usageData || this.usageData.code === 1001) {
       this.statusBarItem.text = t('statusBar.notConfigured');
+      this.statusBarItem.color = undefined;
       this.statusBarItem.tooltip = t('statusBar.clickToConfigureSession');
       return;
     }
@@ -147,10 +149,15 @@ class TraeUsageProvider implements vscode.TreeDataProvider<UsageItem> {
       const remaining = totalLimit - totalUsage;
       const percentage = totalLimit > 0 ? Math.round((totalUsage / totalLimit) * 100) : 0;
       
-      this.statusBarItem.text = `$(zap) Fast: ${totalUsage}/${totalLimit} (${t('statusBar.remaining', { remaining: remaining.toString() })})`;
+      // 只为闪电图标部分设置颜色，其余文本保持默认
+      const lightningIcon = '⚡';
+      const textPart = ` Fast: ${totalUsage}/${totalLimit} (${t('statusBar.remaining', { remaining: remaining.toString() })})`;
+      this.statusBarItem.text = lightningIcon + textPart;
+      this.statusBarItem.color = undefined;
       this.statusBarItem.tooltip = `${t('serviceTypes.premiumFastRequest')} (${t('statusBar.totalQuota', { total: 'All Subscriptions' })})\n${t('statusBar.used', { used: totalUsage.toString() })}\n${t('statusBar.totalQuota', { total: totalLimit.toString() })}\n${t('statusBar.remaining', { remaining: remaining.toString() })}\n${t('statusBar.usageRate', { rate: percentage.toString() })}\n\n${packDetails.join('\n')}`;
     } else {
       this.statusBarItem.text = t('statusBar.noActiveSubscription');
+      this.statusBarItem.color = undefined;
       this.statusBarItem.tooltip = t('statusBar.noActiveSubscriptionTooltip');
     }
   }
