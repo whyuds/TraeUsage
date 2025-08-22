@@ -520,7 +520,11 @@ class TraeUsageProvider {
     logWithTime(`获取使用量数据失败 (尝试 ${retryCount + 1}/${MAX_RETRY_COUNT}): ${error}`);
     
     if (this.isManualRefresh) {
-      this.showFetchErrorMessage(error);
+      if (this.isRetryableError(error)) {
+        vscode.window.showErrorMessage(t('messages.networkUnstable'));
+      } else {
+        this.showFetchErrorMessage(error);
+      }
       this.resetRefreshState();
       this.updateStatusBar();
       return;

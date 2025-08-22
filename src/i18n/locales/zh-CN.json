@@ -76,8 +76,9 @@
     "sessionIdAutoUpdated": "Session ID已自动更新",
     "sameSessionIdDetected": "识别到相同的Session ID:\n{sessionId}...\n\n不会进行更新",
     "noUpdateNeeded": "不会进行更新",
-    "sessionConfigurationMessage": "请配置 Trae Session ID。您可以访问官方使用量页面或安装浏览器扩展来获取。",
-    "installBrowserExtension": "安装浏览器扩展"
+    "sessionConfigurationMessage": "请配置 Trae Session ID。安装浏览器扩展后可直接访问官方使用量页面获取。",
+    "installBrowserExtension": "安装浏览器扩展",
+    "networkUnstable": "当前网络请求不稳定，请稍后再试。"
   },
   
   "configuration": {

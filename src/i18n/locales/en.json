@@ -76,8 +76,9 @@
     "sessionIdAutoUpdated": "Session ID automatically updated",
     "sameSessionIdDetected": "Same Session ID detected:\n{sessionId}...\n\nNo update needed",
     "noUpdateNeeded": "No update needed",
-    "sessionConfigurationMessage": "Please configure Trae Session ID. You can visit the official usage page or install browser extension to get it.",
-    "installBrowserExtension": "Install Browser Extension"
+    "sessionConfigurationMessage": "Please configure Trae Session ID. After installing the browser extension, you can visit the official usage page to get it.",
+    "installBrowserExtension": "Install Browser Extension",
+    "networkUnstable": "The current network request is unstable, please try again later."
   },
   
   "configuration": {
