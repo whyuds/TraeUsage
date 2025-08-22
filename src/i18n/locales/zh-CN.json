@@ -16,7 +16,7 @@
   },
 
   "tooltip": {
-    "title": "🚀 Trae AI 使用量详情",
+    "title": "🚀 Trae 使用量详情",
     "noValidPacks": "没有找到有效的订阅包",
     "packTitle": "📦 订阅包 {index} ({status})",
     "packActive": "🟢 活跃",
@@ -55,12 +55,12 @@
   },
   
   "messages": {
-    "pleaseSetSessionId": "请先设置Trae AI Session ID",
+    "pleaseSetSessionId": "请先设置Trae Session ID",
     "setSessionId": "设置Session ID",
     "cannotGetToken": "无法获取Token，请检查Session ID是否正确",
     "checkSessionIdCorrect": "检查Session ID是否正确",
     "updateSessionId": "更新Session ID",
-    "authenticationExpired": "Trae AI认证已失效，请更新Session ID",
+    "authenticationExpired": "Trae认证已失效，请更新Session ID",
     "pleaseUpdateSessionId": "请更新Session ID",
     "getUsageDataFailed": "获取使用量数据失败: {error}",
     "sessionIdAlreadySet": "已设置Session ID。失效可通过已安装Trae Usage浏览器扩展，访问官网获取最新Session ID。",
@@ -76,13 +76,13 @@
     "sessionIdAutoUpdated": "Session ID已自动更新",
     "sameSessionIdDetected": "识别到相同的Session ID:\n{sessionId}...\n\n不会进行更新",
     "noUpdateNeeded": "不会进行更新",
-    "sessionConfigurationMessage": "请配置 Trae AI Session ID。您可以访问官方使用量页面或安装浏览器扩展来获取。",
+    "sessionConfigurationMessage": "请配置 Trae Session ID。您可以访问官方使用量页面或安装浏览器扩展来获取。",
     "installBrowserExtension": "安装浏览器扩展"
   },
   
   "configuration": {
     "title": "Trae Usage",
-    "sessionIdDescription": "Trae AI session ID (X-Cloudide-Session cookie value)",
+    "sessionIdDescription": "Trae session ID (X-Cloudide-Session cookie value)",
     "refreshIntervalDescription": "Refresh interval in minutes"
   },
   

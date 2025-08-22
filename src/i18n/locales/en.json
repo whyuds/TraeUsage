@@ -16,7 +16,7 @@
   },
 
   "tooltip": {
-    "title": "🚀 Trae AI Usage Details",
+    "title": "🚀 Trae Usage Details",
     "noValidPacks": "No valid subscription packs found",
     "packTitle": "📦 Subscription Pack {index} ({status})",
     "packActive": "🟢 Active",
@@ -55,12 +55,12 @@
   },
   
   "messages": {
-    "pleaseSetSessionId": "Please set Trae AI Session ID first",
+    "pleaseSetSessionId": "Please set Trae Session ID first",
     "setSessionId": "Set Session ID",
     "cannotGetToken": "Cannot get token, please check if Session ID is correct",
     "checkSessionIdCorrect": "Check if Session ID is correct",
     "updateSessionId": "Update Session ID",
-    "authenticationExpired": "Trae AI authentication expired, please update Session ID",
+    "authenticationExpired": "Trae authentication expired, please update Session ID",
     "pleaseUpdateSessionId": "Please update Session ID",
     "getUsageDataFailed": "Failed to get usage data: {error}",
     "sessionIdAlreadySet": "Session ID already set. If expired, use installed Trae Usage browser extension to visit official website for latest Session ID.",
@@ -76,13 +76,13 @@
     "sessionIdAutoUpdated": "Session ID automatically updated",
     "sameSessionIdDetected": "Same Session ID detected:\n{sessionId}...\n\nNo update needed",
     "noUpdateNeeded": "No update needed",
-    "sessionConfigurationMessage": "Please configure Trae AI Session ID. You can visit the official usage page or install browser extension to get it.",
+    "sessionConfigurationMessage": "Please configure Trae Session ID. You can visit the official usage page or install browser extension to get it.",
     "installBrowserExtension": "Install Browser Extension"
   },
   
   "configuration": {
     "title": "Trae Usage",
-    "sessionIdDescription": "Trae AI session ID (X-Cloudide-Session cookie value)",
+    "sessionIdDescription": "Trae session ID (X-Cloudide-Session cookie value)",
     "refreshIntervalDescription": "Refresh interval in minutes"
   },
   
