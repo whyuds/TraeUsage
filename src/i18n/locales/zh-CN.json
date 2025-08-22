@@ -11,7 +11,18 @@
     "expireTime": "过期时间: {time}",
     "loading": "$(sync~spin) 正在刷新...",
     "clickActions": "单击刷新 | 双击设置",
+    "clickInstructions": "💡 单击刷新使用量 | 双击打开设置",
     "refreshing": "正在刷新使用量数据，请稍候..."
+  },
+
+  "tooltip": {
+    "title": "🚀 Trae AI 使用量详情",
+    "noValidPacks": "没有找到有效的订阅包",
+    "packTitle": "📦 订阅包 {index} ({status})",
+    "packActive": "🟢 活跃",
+    "packInactive": "🔴 未激活",
+    "packExpireTime": "⏰ 过期时间: {time}",
+    "flashConsuming": "⚡ Flash 消费中"
   },
   
   "treeView": {

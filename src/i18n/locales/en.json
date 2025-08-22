@@ -11,7 +11,18 @@
     "expireTime": "Expire Time: {time}",
     "loading": "$(sync~spin) Refreshing...",
     "clickActions": "Single click to refresh | Double click for settings",
+    "clickInstructions": "💡 Single click to refresh | Double click for settings",
     "refreshing": "Refreshing usage data, please wait..."
+  },
+
+  "tooltip": {
+    "title": "🚀 Trae AI Usage Details",
+    "noValidPacks": "No valid subscription packs found",
+    "packTitle": "📦 Subscription Pack {index} ({status})",
+    "packActive": "🟢 Active",
+    "packInactive": "🔴 Inactive",
+    "packExpireTime": "⏰ Expire Time: {time}",
+    "flashConsuming": "⚡ Flash Consuming"
   },
   
   "treeView": {
