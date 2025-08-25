@@ -63,11 +63,13 @@ interface TokenResponse {
 type BrowserType = 'chrome' | 'edge' | 'unknown';
 
 // ==================== 常量定义 ====================
-const API_BASE_URL = 'https://api-sg-central.trae.ai';
+const DEFAULT_HOST = 'https://api-sg-central.trae.ai';
+const FALLBACK_HOST = 'https://api-us-east.trae.ai';
 const DOUBLE_CLICK_DELAY = 300;
 const API_TIMEOUT = 3000;
 const MAX_RETRY_COUNT = 5;
 const RETRY_DELAY = 1000;
+const TOKEN_ERROR_CODE = '20310';
 
 // ==================== 工具函数 ====================
 function logWithTime(message: string): void {
@@ -395,14 +397,16 @@ class TraeUsageProvider {
       return this.cachedToken;
     }
 
+    const currentHost = this.getHost();
+    
     try {
       const response = await axios.post<TokenResponse>(
-        `${API_BASE_URL}/cloudide/api/v3/common/GetUserToken`,
+        `${currentHost}/cloudide/api/v3/common/GetUserToken`,
         {},
         {
           headers: {
             'Cookie': `X-Cloudide-Session=${sessionId}`,
-            'Host': 'api-sg-central.trae.ai',
+            'Host': new URL(currentHost).hostname,
             'Content-Type': 'application/json'
           },
           timeout: API_TIMEOUT
@@ -414,12 +418,21 @@ class TraeUsageProvider {
       this.cachedSessionId = sessionId;
       return this.cachedToken;
     } catch (error) {
-      return this.handleTokenError(error, sessionId, retryCount);
+      return this.handleTokenError(error, sessionId, retryCount, currentHost);
     }
   }
 
-  private async handleTokenError(error: any, sessionId: string, retryCount: number): Promise<string | null> {
+  private async handleTokenError(error: any, sessionId: string, retryCount: number, currentHost: string): Promise<string | null> {
     logWithTime(`获取Token失败 (尝试 ${retryCount + 1}/${MAX_RETRY_COUNT}): ${error}`);
+    
+    // 检查是否是20310错误代码，如果是则尝试切换主机
+    if (this.isTokenError(error) && currentHost === DEFAULT_HOST) {
+      logWithTime(`检测到错误代码${TOKEN_ERROR_CODE}，尝试切换到备用主机`);
+      await this.setHost(FALLBACK_HOST);
+      
+      // 用新主机重新尝试
+      return this.getTokenFromSession(sessionId, 0);
+    }
     
     if (this.isRetryableError(error) && retryCount < MAX_RETRY_COUNT) {
       logWithTime(`Token获取失败，将在1秒后进行第${retryCount + 1}次重试`);
@@ -428,6 +441,14 @@ class TraeUsageProvider {
     }
     
     return null;
+  }
+
+  private isTokenError(error: any): boolean {
+    // 检查是否是20310错误代码
+    if (error?.response?.data?.ResponseMetadata?.Error?.Code === TOKEN_ERROR_CODE) {
+      return true;
+    }
+    return false;
   }
 
   async fetchUsageData(retryCount = 0): Promise<void> {
@@ -456,14 +477,26 @@ class TraeUsageProvider {
     return config.get<string>('sessionId');
   }
 
+  private getHost(): string {
+    const config = vscode.workspace.getConfiguration('traeUsage');
+    return config.get<string>('host') || DEFAULT_HOST;
+  }
+
+  private async setHost(host: string): Promise<void> {
+    const config = vscode.workspace.getConfiguration('traeUsage');
+    await config.update('host', host, vscode.ConfigurationTarget.Global);
+    logWithTime(`主机地址已更新为: ${host}`);
+  }
+
   private async callUsageApi(authToken: string) {
+    const currentHost = this.getHost();
     return axios.post(
-      `${API_BASE_URL}/trae/api/v1/pay/user_current_entitlement_list`,
+      `${currentHost}/trae/api/v1/pay/user_current_entitlement_list`,
       {},
       {
         headers: {
           'authorization': `Cloud-IDE-JWT ${authToken}`,
-          'Host': 'api-sg-central.trae.ai',
+          'Host': new URL(currentHost).hostname,
           'Content-Type': 'application/json'
         },
         timeout: API_TIMEOUT
@@ -667,7 +700,9 @@ class ClipboardMonitor {
     );
     
     if (choice === t('messages.confirmUpdate')) {
+      // 同时更新session ID和host，因为它们是绑定的
       await config.update('sessionId', sessionId, vscode.ConfigurationTarget.Global);
+      await config.update('host', DEFAULT_HOST, vscode.ConfigurationTarget.Global);
       vscode.window.showInformationMessage(t('messages.sessionIdAutoUpdated'));
       vscode.commands.executeCommand('traeUsage.refresh');
     }
@@ -743,13 +778,28 @@ async function showUpdateSessionDialog(): Promise<void> {
   const choice = await vscode.window.showInformationMessage(
     t('messages.sessionConfigurationMessage'),
     t('messages.visitOfficialUsagePage'),
-    t('messages.installBrowserExtension')
+    t('messages.installBrowserExtension'),
+    t('messages.manualSessionInput')
   );
   
   if (choice === t('messages.visitOfficialUsagePage')) {
     vscode.env.openExternal(vscode.Uri.parse('https://www.trae.ai/account-setting#usage'));
   } else if (choice === t('messages.installBrowserExtension')) {
     vscode.env.openExternal(vscode.Uri.parse(extensionUrl));
+  } else if (choice === t('messages.manualSessionInput')) {
+    const sessionId = await vscode.window.showInputBox({
+      prompt: 'Please enter your session ID',
+      placeHolder: 'X-Cloudide-Session cookie value'
+    });
+    
+    if (sessionId && sessionId.trim()) {
+      const config = vscode.workspace.getConfiguration('traeUsage');
+      // 同时更新session ID和host，因为它们是绑定的
+      await config.update('sessionId', sessionId.trim(), vscode.ConfigurationTarget.Global);
+      await config.update('host', DEFAULT_HOST, vscode.ConfigurationTarget.Global);
+      vscode.window.showInformationMessage('Session ID updated successfully!');
+      vscode.commands.executeCommand('traeUsage.refresh');
+    }
   }
 }
 

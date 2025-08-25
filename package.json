@@ -42,6 +42,11 @@
           "default": "",
           "description": "%configuration.sessionId.description%"
         },
+        "traeUsage.host": {
+          "type": "string",
+          "default": "https://api-sg-central.trae.ai",
+          "description": "%configuration.host.description%"
+        },
         "traeUsage.refreshInterval": {
           "type": "number",
           "default": 300,

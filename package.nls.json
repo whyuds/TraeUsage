@@ -4,6 +4,7 @@
   "views.traeUsageView.name": "Trae Usage",
   "configuration.title": "Trae Usage",
   "configuration.sessionId.description": "Trae AI session ID (X-Cloudide-Session cookie value)",
+  "configuration.host.description": "Trae AI API host (automatically configured with session ID)",
   "configuration.refreshInterval.description": "Refresh interval in seconds",
   "configuration.language.description": "Extension display language",
   "configuration.language.auto": "Auto Detect",
