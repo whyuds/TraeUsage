@@ -65,7 +65,7 @@
     "getUsageDataFailed": "获取使用量数据失败: {error}",
     "sessionIdAlreadySet": "已设置Session ID。失效可通过已安装Trae Usage浏览器扩展，访问官网获取最新Session ID。",
     "sessionIdExpiredMessage": "已设置Session ID。失效可通过已安装Trae Usage浏览器扩展，访问官网获取最新Session ID。",
-    "visitOfficialUsagePage": "访问官网Usage页面",
+    "visitOfficialUsagePage": "访问官网",
     "resetSessionId": "重新设置Session ID",
     "pleaseInstallExtensionFirst": "请先安装Trae Usage浏览器扩展获取Session ID，安装后访问官网会自动获取。返回VSCode时会自动识别剪贴板中的Session ID。",
     "installChromeExtension": "安装Chrome扩展",
@@ -77,8 +77,7 @@
     "sameSessionIdDetected": "识别到相同的Session ID:\n{sessionId}...\n\n不会进行更新",
     "noUpdateNeeded": "不会进行更新",
     "sessionConfigurationMessage": "请配置 Trae Session ID。安装浏览器扩展后可直接访问官方使用量页面获取。",
-    "installBrowserExtension": "安装浏览器扩展",
-    "manualSessionInput": "手动输入",
+    "installBrowserExtension": "安装扩展",
     "networkUnstable": "当前网络请求不稳定，请稍后再试。"
   },
   

@@ -65,7 +65,7 @@
     "getUsageDataFailed": "Failed to get usage data: {error}",
     "sessionIdAlreadySet": "Session ID already set. If expired, use installed Trae Usage browser extension to visit official website for latest Session ID.",
     "sessionIdExpiredMessage": "Session ID already set. If expired, use installed Trae Usage browser extension to visit official website for latest Session ID.",
-    "visitOfficialUsagePage": "Visit Official Usage Page",
+    "visitOfficialUsagePage": "Visit Official Page",
     "resetSessionId": "Reset Session ID",
     "pleaseInstallExtensionFirst": "Please install Trae Usage browser extension to get Session ID first. After installation, visit official website to automatically get it. VSCode will automatically detect Session ID in clipboard when you return.",
     "installChromeExtension": "Install Chrome Extension",
@@ -77,8 +77,7 @@
     "sameSessionIdDetected": "Same Session ID detected:\n{sessionId}...\n\nNo update needed",
     "noUpdateNeeded": "No update needed",
     "sessionConfigurationMessage": "Please configure Trae Session ID. After installing the browser extension, you can visit the official usage page to get it.",
-    "installBrowserExtension": "Install Browser Extension",
-    "manualSessionInput": "Manual Input",
+    "installBrowserExtension": "Install Extension",
     "networkUnstable": "The current network request is unstable, please try again later."
   },
   

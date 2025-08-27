@@ -778,28 +778,13 @@ async function showUpdateSessionDialog(): Promise<void> {
   const choice = await vscode.window.showInformationMessage(
     t('messages.sessionConfigurationMessage'),
     t('messages.visitOfficialUsagePage'),
-    t('messages.installBrowserExtension'),
-    t('messages.manualSessionInput')
+    t('messages.installBrowserExtension')
   );
   
   if (choice === t('messages.visitOfficialUsagePage')) {
     vscode.env.openExternal(vscode.Uri.parse('https://www.trae.ai/account-setting#usage'));
   } else if (choice === t('messages.installBrowserExtension')) {
     vscode.env.openExternal(vscode.Uri.parse(extensionUrl));
-  } else if (choice === t('messages.manualSessionInput')) {
-    const sessionId = await vscode.window.showInputBox({
-      prompt: 'Please enter your session ID',
-      placeHolder: 'X-Cloudide-Session cookie value'
-    });
-    
-    if (sessionId && sessionId.trim()) {
-      const config = vscode.workspace.getConfiguration('traeUsage');
-      // 同时更新session ID和host，因为它们是绑定的
-      await config.update('sessionId', sessionId.trim(), vscode.ConfigurationTarget.Global);
-      await config.update('host', DEFAULT_HOST, vscode.ConfigurationTarget.Global);
-      vscode.window.showInformationMessage('Session ID updated successfully!');
-      vscode.commands.executeCommand('traeUsage.refresh');
-    }
   }
 }
 
