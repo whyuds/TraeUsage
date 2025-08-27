@@ -9,5 +9,7 @@
   "configuration.language.description": "扩展显示语言",
   "configuration.language.auto": "自动检测",
   "configuration.language.zhCN": "中文",
-  "configuration.language.en": "English"
+  "configuration.language.en": "English",
+  "configuration.websocketUrl.description": "WebSocket服务器地址 (例如: ws://localhost:8080/ws)",
+  "configuration.enableWebsocket.description": "启用WebSocket实时数据投递"
 }

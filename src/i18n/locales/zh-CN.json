@@ -78,13 +78,20 @@
     "noUpdateNeeded": "不会进行更新",
     "sessionConfigurationMessage": "请配置 Trae Session ID。安装浏览器扩展后可直接访问官方使用量页面获取。",
     "installBrowserExtension": "安装扩展",
-    "networkUnstable": "当前网络请求不稳定，请稍后再试。"
+    "networkUnstable": "当前网络请求不稳定，请稍后再试。",
+    "websocketConnected": "WebSocket已连接到 {url}",
+    "websocketDisconnected": "WebSocket连接已断开",
+    "websocketConnectionFailed": "WebSocket连接失败: {error}",
+    "websocketReconnecting": "WebSocket正在重连 (第{attempt}次尝试)",
+    "websocketConfigured": "WebSocket地址已配置: {url}"
   },
   
   "configuration": {
     "title": "Trae Usage",
     "sessionIdDescription": "Trae session ID (X-Cloudide-Session cookie value)",
-    "refreshIntervalDescription": "Refresh interval in minutes"
+    "refreshIntervalDescription": "Refresh interval in minutes",
+    "websocketUrlDescription": "WebSocket服务器地址 (例如: ws://localhost:8080/ws)",
+    "enableWebsocketDescription": "启用WebSocket实时数据投递"
   },
   
   "serviceTypes": {

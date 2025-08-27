@@ -78,13 +78,20 @@
     "noUpdateNeeded": "No update needed",
     "sessionConfigurationMessage": "Please configure Trae Session ID. After installing the browser extension, you can visit the official usage page to get it.",
     "installBrowserExtension": "Install Extension",
-    "networkUnstable": "The current network request is unstable, please try again later."
+    "networkUnstable": "The current network request is unstable, please try again later.",
+    "websocketConnected": "WebSocket connected to {url}",
+    "websocketDisconnected": "WebSocket connection disconnected",
+    "websocketConnectionFailed": "WebSocket connection failed: {error}",
+    "websocketReconnecting": "WebSocket reconnecting (attempt {attempt})",
+    "websocketConfigured": "WebSocket URL configured: {url}"
   },
   
   "configuration": {
     "title": "Trae Usage",
     "sessionIdDescription": "Trae session ID (X-Cloudide-Session cookie value)",
-    "refreshIntervalDescription": "Refresh interval in minutes"
+    "refreshIntervalDescription": "Refresh interval in minutes",
+    "websocketUrlDescription": "WebSocket server URL (e.g., ws://localhost:8080/ws)",
+    "enableWebsocketDescription": "Enable WebSocket real-time data delivery"
   },
   
   "serviceTypes": {

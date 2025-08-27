@@ -66,6 +66,16 @@
           ],
           "default": "auto",
           "description": "%configuration.language.description%"
+        },
+        "traeUsage.websocketUrl": {
+          "type": "string",
+          "default": "",
+          "description": "%configuration.websocketUrl.description%"
+        },
+        "traeUsage.enableWebsocket": {
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.enableWebsocket.description%"
         }
       }
     }
@@ -82,6 +92,7 @@
   "devDependencies": {
     "@types/node": "16.x",
     "@types/vscode": "^1.74.0",
+    "@types/ws": "^8.5.0",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
     "esbuild": "^0.19.0",
@@ -89,6 +100,7 @@
     "typescript": "^4.9.4"
   },
   "dependencies": {
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "ws": "^8.14.0"
   }
 }
