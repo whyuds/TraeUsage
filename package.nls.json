@@ -11,5 +11,6 @@
   "configuration.language.zhCN": "中文",
   "configuration.language.en": "English",
   "configuration.websocketUrl.description": "WebSocket server URL (e.g., ws://localhost:8080/ws)",
-  "configuration.enableWebsocket.description": "Enable WebSocket real-time data delivery"
+  "configuration.enableWebsocket.description": "Enable WebSocket real-time data delivery",
+  "configuration.websocketGroupId.description": "WebSocket group ID for message categorization (optional)"
 }

@@ -29,6 +29,8 @@ interface EntitlementPack {
   entitlement_base_info: {
     end_time: number;
     quota: QuotaData;
+    user_id: string;
+    start_time: number;
   };
   usage: UsageData;
   status: number;
@@ -64,46 +66,19 @@ interface TokenResponse {
 type BrowserType = 'chrome' | 'edge' | 'unknown';
 
 // ==================== WebSocket类型定义 ====================
-interface WebSocketUsageMessage {
-  type: 'usage_update';
+interface WebSocketHeartbeatMessage {
+  type: 'heartbeat';
   timestamp: number;
   clientId: string;
-  sessionId: string;
-  usageData: ApiResponse;
-  userInfo: {
-    machineId: string;
-    platform: string;
-    vsCodeVersion: string;
-    extensionVersion: string;
-  };
+  ip: string;
+  machineId: string;
+  premium_model_fast_request_limit: number;
+  premium_model_fast_request_usage: number;
+  user_id: string;
+  start_time: number;
+  end_time: number;
+  group_id?: string;
 }
-
-interface WebSocketPingMessage {
-  type: 'ping';
-  timestamp: number;
-  clientId: string;
-}
-
-interface WebSocketConnectMessage {
-  type: 'client_connect';
-  timestamp: number;
-  clientId: string;
-  sessionId: string;
-  userInfo: {
-    machineId: string;
-    platform: string;
-    vsCodeVersion: string;
-    extensionVersion: string;
-  };
-}
-
-interface WebSocketDisconnectMessage {
-  type: 'client_disconnect';
-  timestamp: number;
-  clientId: string;
-}
-
-type WebSocketMessage = WebSocketUsageMessage | WebSocketPingMessage | WebSocketConnectMessage | WebSocketDisconnectMessage;
 
 // ==================== 常量定义 ====================
 const DEFAULT_HOST = 'https://api-sg-central.trae.ai';
@@ -115,6 +90,15 @@ const RETRY_DELAY = 1000;
 const TOKEN_ERROR_CODE = '20310';
 
 // ==================== 工具函数 ====================
+let outputChannel: vscode.OutputChannel;
+
+function getOutputChannel(): vscode.OutputChannel {
+  if (!outputChannel) {
+    outputChannel = vscode.window.createOutputChannel('Trae Usage');
+  }
+  return outputChannel;
+}
+
 function logWithTime(message: string): void {
   const timestamp = new Date().toLocaleString('zh-CN', {
     year: 'numeric',
@@ -125,7 +109,9 @@ function logWithTime(message: string): void {
     second: '2-digit',
     hour12: false
   });
-  console.log(`[${timestamp}] ${message}`);
+  const logMessage = `[${timestamp}] ${message}`;
+  console.log(logMessage);
+  getOutputChannel().appendLine(logMessage);
 }
 
 function formatTimestamp(timestamp: number): string {
@@ -188,15 +174,12 @@ function parseBrowserOutput(output: string): BrowserType {
 class WebSocketManager {
   private ws: WebSocket | null = null;
   private isConnected = false;
-  private reconnectAttempts = 0;
-  private readonly maxReconnectAttempts = 5;
-  private readonly reconnectInterval = 5000; // 5秒
-  private reconnectTimer: NodeJS.Timeout | null = null;
-  private pingTimer: NodeJS.Timeout | null = null;
-  private readonly pingInterval = 30000; // 30秒
+  private heartbeatTimer: NodeJS.Timeout | null = null;
+  private readonly heartbeatInterval = 30000;
   private clientId: string;
   private url: string | null = null;
   private enabled = false;
+  private cachedHeartbeatData: WebSocketHeartbeatMessage | null = null;
 
   constructor(private context: vscode.ExtensionContext) {
     this.clientId = this.generateClientId();
@@ -208,101 +191,96 @@ class WebSocketManager {
     return `vscode-${machineId}-${timestamp}`;
   }
 
-  private getUserInfo() {
-    return {
-      machineId: vscode.env.machineId,
-      platform: os.platform(),
-      vsCodeVersion: vscode.version,
-      extensionVersion: this.context.extension?.packageJSON?.version || 'unknown'
-    };
-  }
-
   public updateConfig(): void {
     const config = vscode.workspace.getConfiguration('traeUsage');
     const newUrl = config.get<string>('websocketUrl', '');
     const newEnabled = config.get<boolean>('enableWebsocket', false);
 
-    const urlChanged = this.url !== newUrl;
-    const enabledChanged = this.enabled !== newEnabled;
-
     this.url = newUrl;
     this.enabled = newEnabled;
 
-    if (enabledChanged || urlChanged) {
-      if (this.enabled && this.url) {
-        if (this.isConnected) {
-          this.disconnect();
-        }
-        this.connect();
-      } else {
-        this.disconnect();
-      }
+    // 如果禁用了WebSocket，断开连接并停止心跳
+    if (!this.enabled) {
+      this.disconnect();
+      this.stopHeartbeat();
+    } else if (this.enabled && this.url) {
+      // 如果启用了WebSocket，开始心跳定时器
+      this.startHeartbeat();
     }
   }
 
-  public connect(): void {
+  private async connectIfNeeded(): Promise<boolean> {
     if (!this.enabled || !this.url) {
-      return;
+      return false;
     }
 
-    // 验证和修正URL
-    const correctedUrl = this.validateAndCorrectUrl(this.url);
+    if (this.isConnected && this.ws) {
+      return true;
+    }
+
+    return this.connect();
+  }
+
+  private async connect(): Promise<boolean> {
+    const correctedUrl = this.validateAndCorrectUrl(this.url!);
     if (!correctedUrl) {
       logWithTime(`WebSocket URL 格式无效: ${this.url}`);
-      return;
+      return false;
     }
 
-    if (this.isConnected || this.ws) {
-      this.disconnect();
+    // 清理旧连接
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+      this.isConnected = false;
     }
 
     try {
       logWithTime(`尝试连接WebSocket: ${correctedUrl}`);
       this.ws = new WebSocket(correctedUrl);
 
-      // 设置连接超时
-      const connectionTimeout = setTimeout(() => {
-        if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
-          logWithTime('WebSocket连接超时');
-          this.ws.terminate();
-        }
-      }, 10000); // 10秒超时
+      return new Promise<boolean>((resolve) => {
+        const connectionTimeout = setTimeout(() => {
+          if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+            logWithTime('WebSocket连接超时');
+            this.ws.terminate();
+            resolve(false);
+          }
+        }, 10000);
 
-      this.ws.on('open', () => {
-        clearTimeout(connectionTimeout);
-        this.onOpen();
-      });
+        this.ws!.on('open', () => {
+          clearTimeout(connectionTimeout);
+          this.onOpen();
+          resolve(true);
+        });
 
-      this.ws.on('message', (data) => {
-        this.onMessage(data);
-      });
+        this.ws!.on('close', (code, reason) => {
+          clearTimeout(connectionTimeout);
+          this.onClose(code, reason);
+          resolve(false);
+        });
 
-      this.ws.on('close', (code, reason) => {
-        clearTimeout(connectionTimeout);
-        this.onClose(code, reason);
-      });
-
-      this.ws.on('error', (error) => {
-        clearTimeout(connectionTimeout);
-        this.onError(error);
+        this.ws!.on('error', (error) => {
+          clearTimeout(connectionTimeout);
+          this.onError(error);
+          resolve(false);
+        });
       });
 
     } catch (error) {
       logWithTime(`WebSocket连接异常: ${error}`);
-      this.scheduleReconnect();
+      return false;
     }
   }
 
   private validateAndCorrectUrl(url: string): string | null {
     try {
-      // 如果URL使用0.0.0.0，替换为localhost
       if (url.includes('0.0.0.0')) {
         const correctedUrl = url.replace('0.0.0.0', 'localhost');
         logWithTime(`URL已修正: ${url} -> ${correctedUrl}`);
         return correctedUrl;
       }
 
-      // 验证URL格式
       const parsedUrl = new URL(url);
       if (parsedUrl.protocol !== 'ws:' && parsedUrl.protocol !== 'wss:') {
         logWithTime(`不支持的协议: ${parsedUrl.protocol}`);
@@ -318,131 +296,110 @@ class WebSocketManager {
 
   private onOpen(): void {
     this.isConnected = true;
-    this.reconnectAttempts = 0;
     logWithTime(`WebSocket已连接: ${this.url}`);
-    
-    // 发送连接消息
-    this.sendConnectMessage();
-    
-    // 开始心跳
-    this.startPing();
-    
-    // 通知用户
-    vscode.window.showInformationMessage(t('messages.websocketConnected', { url: this.url || '' }));
-  }
-
-  private onMessage(data: WebSocket.RawData): void {
-    try {
-      const message = JSON.parse(data.toString());
-      logWithTime(`收到WebSocket消息: ${message.type}`);
-    } catch (error) {
-      logWithTime(`WebSocket消息解析失败: ${error}`);
-    }
   }
 
   private onClose(code?: number, reason?: Buffer): void {
     this.isConnected = false;
-    this.stopPing();
     
     const closeMessage = reason ? reason.toString() : '';
     logWithTime(`WebSocket连接已关闭 (代码: ${code}, 原因: ${closeMessage})`);
-    
-    if (this.enabled && code !== 1000) { // 1000表示正常关闭
-      this.scheduleReconnect();
-    }
   }
 
   private onError(error: Error): void {
     const errorMessage = error.message;
     logWithTime(`WebSocket错误: ${errorMessage}`);
     
-    // 提供更友好的错误提示
-    let userMessage = errorMessage;
-    if (errorMessage.includes('ECONNREFUSED')) {
-      userMessage = '无法连接到WebSocket服务器，请确认服务器是否运行';
-    } else if (errorMessage.includes('socket hang up')) {
-      userMessage = '连接被服务器拒绝，请检查服务器配置';
-    } else if (errorMessage.includes('ENOTFOUND')) {
-      userMessage = '无法解析服务器地址，请检查URL配置';
-    }
+    this.isConnected = false;
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
     
-    if (this.reconnectAttempts === 0) {
-      vscode.window.showErrorMessage(t('messages.websocketConnectionFailed', { error: userMessage }));
+    // 立即尝试发送一次心跳
+    this.sendHeartbeat();
+    
+    // 启动定时器
+    this.heartbeatTimer = setInterval(() => {
+      this.sendHeartbeat();
+    }, this.heartbeatInterval);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
     }
   }
 
-  private scheduleReconnect(): void {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      logWithTime('WebSocket重连次数已达上限，停止重连');
+  private async sendHeartbeat(): Promise<void> {
+    if (!this.enabled || !this.cachedHeartbeatData) {
       return;
     }
 
-    this.reconnectAttempts++;
-    logWithTime(`将在${this.reconnectInterval/1000}秒后进行第${this.reconnectAttempts}次WebSocket重连`);
-    
-    if (this.reconnectAttempts <= 3) {
-      vscode.window.showWarningMessage(t('messages.websocketReconnecting', { attempt: this.reconnectAttempts.toString() }));
+    // 尝试连接（如果需要）
+    const connected = await this.connectIfNeeded();
+    if (!connected) {
+      logWithTime('WebSocket连接失败，跳过心跳发送');
+      return;
     }
 
-    this.reconnectTimer = setTimeout(() => {
-      this.connect();
-    }, this.reconnectInterval);
-  }
-
-  private sendConnectMessage(): void {
-    const sessionId = this.getSessionId();
-    if (!sessionId) return;
-
-    const message: WebSocketConnectMessage = {
-      type: 'client_connect',
-      timestamp: Date.now(),
-      clientId: this.clientId,
-      sessionId,
-      userInfo: this.getUserInfo()
+    const heartbeatMessage: WebSocketHeartbeatMessage = {
+      ...this.cachedHeartbeatData,
+      timestamp: Date.now()
     };
 
-    this.sendMessage(message);
+    this.sendMessage(heartbeatMessage);
   }
 
-  private startPing(): void {
-    this.stopPing();
-    this.pingTimer = setInterval(() => {
-      const pingMessage: WebSocketPingMessage = {
-        type: 'ping',
-        timestamp: Date.now(),
-        clientId: this.clientId
-      };
-      this.sendMessage(pingMessage);
-    }, this.pingInterval);
-  }
-
-  private stopPing(): void {
-    if (this.pingTimer) {
-      clearInterval(this.pingTimer);
-      this.pingTimer = null;
+  private async getClientIP(): Promise<string> {
+    try {
+      const response = await axios.get('https://api.ipify.org?format=json', { timeout: 3000 });
+      return response.data.ip;
+    } catch (error) {
+      logWithTime(`获取IP地址失败: ${error}`);
+      return 'unknown';
     }
   }
 
-  public sendUsageUpdate(usageData: ApiResponse): void {
-    if (!this.isConnected) return;
+  public async updateHeartbeatData(usageData: ApiResponse): Promise<void> {
+    if (!usageData.user_entitlement_pack_list || usageData.user_entitlement_pack_list.length === 0) {
+      return;
+    }
 
-    const sessionId = this.getSessionId();
-    if (!sessionId) return;
+    // 获取第一条订阅数据
+    const firstPack = usageData.user_entitlement_pack_list[0];
+    const ip = await this.getClientIP();
+    const config = vscode.workspace.getConfiguration('traeUsage');
+    const groupId = config.get<string>('websocketGroupId');
 
-    const message: WebSocketUsageMessage = {
-      type: 'usage_update',
+    this.cachedHeartbeatData = {
+      type: 'heartbeat',
       timestamp: Date.now(),
       clientId: this.clientId,
-      sessionId,
-      usageData,
-      userInfo: this.getUserInfo()
+      ip,
+      machineId: vscode.env.machineId,
+      premium_model_fast_request_limit: firstPack.entitlement_base_info.quota.premium_model_fast_request_limit,
+      premium_model_fast_request_usage: firstPack.usage.premium_model_fast_request_usage,
+      user_id: firstPack.entitlement_base_info.user_id,
+      start_time: firstPack.entitlement_base_info.start_time,
+      end_time: firstPack.entitlement_base_info.end_time
     };
 
-    this.sendMessage(message);
-    logWithTime('已发送使用量更新到WebSocket服务器');
+    // 如果配置了group_id，则添加到心跳数据中
+    if (groupId && groupId.trim() !== '') {
+      this.cachedHeartbeatData.group_id = groupId.trim();
+    }
+
+    logWithTime(`心跳数据已更新: ${JSON.stringify(this.cachedHeartbeatData, null, 2)}`);
+
+    // 心跳数据更新后，如果启用了WebSocket并且有URL，立即尝试发送一次心跳
+    if (this.enabled && this.url) {
+      this.sendHeartbeat();
+    }
   }
 
-  private sendMessage(message: WebSocketMessage): void {
+  private sendMessage(message: WebSocketHeartbeatMessage): void {
     if (!this.ws || !this.isConnected) {
       return;
     }
@@ -454,48 +411,28 @@ class WebSocketManager {
     }
   }
 
-  private getSessionId(): string | undefined {
-    const config = vscode.workspace.getConfiguration('traeUsage');
-    return config.get<string>('sessionId');
-  }
-
   public disconnect(): void {
-    this.enabled = false;
-    
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-
-    this.stopPing();
-
     if (this.ws) {
-      if (this.isConnected) {
-        // 发送断开连接消息
-        const disconnectMessage: WebSocketDisconnectMessage = {
-          type: 'client_disconnect',
-          timestamp: Date.now(),
-          clientId: this.clientId
-        };
-        this.sendMessage(disconnectMessage);
-      }
-
       this.ws.close();
       this.ws = null;
     }
 
     this.isConnected = false;
-    this.reconnectAttempts = 0;
     
     logWithTime('WebSocket已断开连接');
   }
 
-  public dispose(): void {
-    this.disconnect();
+  public getConnectionStatus(): { enabled: boolean; connected: boolean; url: string | null } {
+    return {
+      enabled: this.enabled,
+      connected: this.isConnected,
+      url: this.url
+    };
   }
 
-  public isWebSocketConnected(): boolean {
-    return this.isConnected;
+  public dispose(): void {
+    this.stopHeartbeat();
+    this.disconnect();
   }
 }
 
@@ -536,9 +473,7 @@ class TraeUsageProvider {
       this.updateStatusBar();
     }
 
-    // 初始化WebSocket配置
     this.webSocketManager.updateConfig();
-
     this.startAutoRefresh();
     this.fetchUsageData();
   }
@@ -550,11 +485,9 @@ class TraeUsageProvider {
     this.clickCount++;
     
     if (this.clickTimer) {
-      // 双击：打开设置
       this.clearClickTimer();
       vscode.commands.executeCommand('traeUsage.updateSession');
     } else {
-      // 单击：设置定时器
       this.clickTimer = setTimeout(() => {
         if (this.clickCount === 1) {
           this.refresh();
@@ -599,8 +532,6 @@ class TraeUsageProvider {
       if (!sessionId) {
         this.showNotConfiguredStatus();
       }
-      // If a session ID exists but data is invalid, do nothing.
-      // This preserves the 'Refreshing...' or previous state.
       return;
     }
 
@@ -622,7 +553,19 @@ class TraeUsageProvider {
     const { totalUsage, totalLimit } = stats;
     const remaining = totalLimit - totalUsage;
     
-    this.statusBarItem.text = `⚡ Fast: ${totalUsage}/${totalLimit} (${t('statusBar.remaining', { remaining: remaining.toString() })})`;
+    // 获取WebSocket连接状态
+    const wsStatus = this.webSocketManager.getConnectionStatus();
+    let lightningIcon = '⚡'; // 默认闪电图标
+    
+    if (wsStatus.enabled && wsStatus.url) {
+      if (wsStatus.connected) {
+        lightningIcon = '⚡'; // 连接成功：正常闪电
+      } else {
+        lightningIcon = '🔌'; // 连接失败：插头图标
+      }
+    }
+    
+    this.statusBarItem.text = `${lightningIcon} Fast: ${totalUsage}/${totalLimit} (${t('statusBar.remaining', { remaining: remaining.toString() })})`;
     this.statusBarItem.color = undefined;
     this.statusBarItem.tooltip = this.buildDetailedTooltip();
   }
@@ -701,7 +644,6 @@ class TraeUsageProvider {
     const { usage, entitlement_base_info } = pack;
     const { quota } = entitlement_base_info;
     
-    // 包信息
     const statusText = pack.status === 1 ? t('tooltip.packActive') : t('tooltip.packInactive');
     sections.push(
       t('tooltip.packTitle', { index: (index + 1).toString(), status: statusText }),
@@ -709,7 +651,6 @@ class TraeUsageProvider {
       ''
     );
 
-    // 使用量详情 - 简化显示，每种request只占一行
     const usageTypes = [
       { 
         name: t('serviceTypes.premiumFastRequest'),
@@ -751,8 +692,6 @@ class TraeUsageProvider {
     return sections;
   }
 
-
-
   // ==================== API 调用 ====================
   private async getTokenFromSession(sessionId: string, retryCount = 0): Promise<string | null> {
     if (this.cachedToken && this.cachedSessionId === sessionId) {
@@ -788,12 +727,9 @@ class TraeUsageProvider {
   private async handleTokenError(error: any, sessionId: string, retryCount: number, currentHost: string): Promise<string | null> {
     logWithTime(`获取Token失败 (尝试 ${retryCount + 1}/${MAX_RETRY_COUNT}): ${error}`);
     
-    // 检查是否是20310错误代码，如果是则尝试切换主机
     if (this.isTokenError(error) && currentHost === DEFAULT_HOST) {
       logWithTime(`检测到错误代码${TOKEN_ERROR_CODE}，尝试切换到备用主机`);
       await this.setHost(FALLBACK_HOST);
-      
-      // 用新主机重新尝试
       return this.getTokenFromSession(sessionId, 0);
     }
     
@@ -807,11 +743,7 @@ class TraeUsageProvider {
   }
 
   private isTokenError(error: any): boolean {
-    // 检查是否是20310错误代码
-    if (error?.response?.data?.ResponseMetadata?.Error?.Code === TOKEN_ERROR_CODE) {
-      return true;
-    }
-    return false;
+    return error?.response?.data?.ResponseMetadata?.Error?.Code === TOKEN_ERROR_CODE;
   }
 
   async fetchUsageData(retryCount = 0): Promise<void> {
@@ -867,7 +799,7 @@ class TraeUsageProvider {
     );
   }
 
-  private handleApiResponse(data: ApiResponse): void {
+  private async handleApiResponse(data: ApiResponse): Promise<void> {
     this.usageData = data;
     logWithTime('获取使用量数据成功');
     
@@ -875,8 +807,8 @@ class TraeUsageProvider {
       this.handleTokenExpired();
     }
 
-    // 发送使用量数据到WebSocket服务器
-    this.webSocketManager.sendUsageUpdate(data);
+    // 更新WebSocket心跳数据
+    await this.webSocketManager.updateHeartbeatData(data);
 
     this.updateStatusBar();
     this.resetRefreshState();
@@ -1031,6 +963,9 @@ class TraeUsageProvider {
       this.statusBarItem.dispose();
     }
     this.webSocketManager.dispose();
+    if (outputChannel) {
+      outputChannel.dispose();
+    }
   }
 }
 
@@ -1072,7 +1007,6 @@ class ClipboardMonitor {
     );
     
     if (choice === t('messages.confirmUpdate')) {
-      // 同时更新session ID和host，因为它们是绑定的
       await config.update('sessionId', sessionId, vscode.ConfigurationTarget.Global);
       await config.update('host', DEFAULT_HOST, vscode.ConfigurationTarget.Global);
       vscode.window.showInformationMessage(t('messages.sessionIdAutoUpdated'));
@@ -1094,10 +1028,7 @@ export function activate(context: vscode.ExtensionContext) {
   const provider = new TraeUsageProvider(context);
   const clipboardMonitor = new ClipboardMonitor();
 
-  // 注册命令
   registerCommands(context, provider);
-  
-  // 注册监听器
   registerListeners(context, provider, clipboardMonitor);
   
   context.subscriptions.push(provider);
@@ -1120,14 +1051,12 @@ function registerCommands(context: vscode.ExtensionContext, provider: TraeUsageP
 }
 
 function registerListeners(context: vscode.ExtensionContext, provider: TraeUsageProvider, clipboardMonitor: ClipboardMonitor): void {
-  // 窗口状态监听
   const windowStateListener = vscode.window.onDidChangeWindowState(async (e) => {
     if (e.focused) {
       setTimeout(() => clipboardMonitor.checkForSession(), 500);
     }
   });
 
-  // 配置变化监听
   const configListener = vscode.workspace.onDidChangeConfiguration(e => {
     if (e.affectsConfiguration('traeUsage.refreshInterval')) {
       provider.startAutoRefresh();

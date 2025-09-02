@@ -67,15 +67,20 @@
           "default": "auto",
           "description": "%configuration.language.description%"
         },
+        "traeUsage.enableWebsocket": {
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.enableWebsocket.description%"
+        },
         "traeUsage.websocketUrl": {
           "type": "string",
           "default": "",
           "description": "%configuration.websocketUrl.description%"
         },
-        "traeUsage.enableWebsocket": {
-          "type": "boolean",
-          "default": false,
-          "description": "%configuration.enableWebsocket.description%"
+        "traeUsage.websocketGroupId": {
+          "type": "string",
+          "default": "",
+          "description": "%configuration.websocketGroupId.description%"
         }
       }
     }
