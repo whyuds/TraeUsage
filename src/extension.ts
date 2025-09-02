@@ -174,15 +174,27 @@ function parseBrowserOutput(output: string): BrowserType {
 class WebSocketManager {
   private ws: WebSocket | null = null;
   private isConnected = false;
+  private hasConnectionError = false;
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private readonly heartbeatInterval = 30000;
   private clientId: string;
   private url: string | null = null;
   private enabled = false;
   private cachedHeartbeatData: WebSocketHeartbeatMessage | null = null;
+  private onStatusChangeCallback: (() => void) | null = null;
 
   constructor(private context: vscode.ExtensionContext) {
     this.clientId = this.generateClientId();
+  }
+
+  public setStatusChangeCallback(callback: () => void): void {
+    this.onStatusChangeCallback = callback;
+  }
+
+  private notifyStatusChange(): void {
+    if (this.onStatusChangeCallback) {
+      this.onStatusChangeCallback();
+    }
   }
 
   private generateClientId(): string {
@@ -296,7 +308,11 @@ class WebSocketManager {
 
   private onOpen(): void {
     this.isConnected = true;
+    this.hasConnectionError = false;
     logWithTime(`WebSocket已连接: ${this.url}`);
+    
+    vscode.window.showInformationMessage(t('messages.websocketConnected', { url: this.url || '' }));
+    this.notifyStatusChange();
   }
 
   private onClose(code?: number, reason?: Buffer): void {
@@ -304,13 +320,23 @@ class WebSocketManager {
     
     const closeMessage = reason ? reason.toString() : '';
     logWithTime(`WebSocket连接已关闭 (代码: ${code}, 原因: ${closeMessage})`);
+    
+    // 如果不是正常关闭，标记为连接错误
+    if (code !== 1000) {
+      this.hasConnectionError = true;
+    }
+    
+    this.notifyStatusChange();
   }
 
   private onError(error: Error): void {
     const errorMessage = error.message;
     logWithTime(`WebSocket错误: ${errorMessage}`);
     
+    this.hasConnectionError = true;
     this.isConnected = false;
+    
+    this.notifyStatusChange();
   }
 
   private startHeartbeat(): void {
@@ -422,11 +448,11 @@ class WebSocketManager {
     logWithTime('WebSocket已断开连接');
   }
 
-  public getConnectionStatus(): { enabled: boolean; connected: boolean; url: string | null } {
+  public getConnectionStatus(): { enabled: boolean; connected: boolean; hasError: boolean } {
     return {
       enabled: this.enabled,
       connected: this.isConnected,
-      url: this.url
+      hasError: this.hasConnectionError
     };
   }
 
@@ -453,6 +479,12 @@ class TraeUsageProvider {
   constructor(private context: vscode.ExtensionContext) {
     this.statusBarItem = this.createStatusBarItem();
     this.webSocketManager = new WebSocketManager(context);
+    
+    // 设置WebSocket状态变化回调
+    this.webSocketManager.setStatusChangeCallback(() => {
+      this.updateStatusBar();
+    });
+    
     this.initialize();
   }
 
@@ -553,19 +585,11 @@ class TraeUsageProvider {
     const { totalUsage, totalLimit } = stats;
     const remaining = totalLimit - totalUsage;
     
-    // 获取WebSocket连接状态
+    // 检查WebSocket连接状态
     const wsStatus = this.webSocketManager.getConnectionStatus();
-    let lightningIcon = '⚡'; // 默认闪电图标
+    const icon = (wsStatus.enabled && wsStatus.hasError) ? '⚠️' : '⚡';
     
-    if (wsStatus.enabled && wsStatus.url) {
-      if (wsStatus.connected) {
-        lightningIcon = '⚡'; // 连接成功：正常闪电
-      } else {
-        lightningIcon = '🔌'; // 连接失败：插头图标
-      }
-    }
-    
-    this.statusBarItem.text = `${lightningIcon} Fast: ${totalUsage}/${totalLimit} (${t('statusBar.remaining', { remaining: remaining.toString() })})`;
+    this.statusBarItem.text = `${icon} Fast: ${totalUsage}/${totalLimit} (${t('statusBar.remaining', { remaining: remaining.toString() })})`;
     this.statusBarItem.color = undefined;
     this.statusBarItem.tooltip = this.buildDetailedTooltip();
   }
@@ -635,6 +659,19 @@ class TraeUsageProvider {
       });
     }
 
+    // 如果启用了WebSocket，添加连接状态信息
+    const wsStatus = this.webSocketManager.getConnectionStatus();
+    if (wsStatus.enabled) {
+      sections.push('', '-'.repeat(30));
+      if (wsStatus.connected) {
+        sections.push('🟢 WebSocket: 已连接');
+      } else if (wsStatus.hasError) {
+        sections.push('🔴 WebSocket: 连接失败');
+      } else {
+        sections.push('🟡 WebSocket: 连接中...');
+      }
+    }
+    
     sections.push('', '═'.repeat(30), t('statusBar.clickInstructions'));
     return sections.join('\n');
   }
