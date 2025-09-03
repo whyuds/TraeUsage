@@ -78,12 +78,7 @@
     "noUpdateNeeded": "No update needed",
     "sessionConfigurationMessage": "Please configure Trae Session ID. After installing the browser extension, you can visit the official usage page to get it.",
     "installBrowserExtension": "Install Extension",
-    "networkUnstable": "The current network request is unstable, please try again later.",
-    "websocketConnected": "WebSocket connected to {url}",
-    "websocketDisconnected": "WebSocket connection disconnected",
-    "websocketConnectionFailed": "WebSocket connection failed: {error}",
-    "websocketReconnecting": "WebSocket reconnecting (attempt {attempt})",
-    "websocketConfigured": "WebSocket URL configured: {url}"
+    "networkUnstable": "The current network request is unstable, please try again later."
   },
   
   "configuration": {

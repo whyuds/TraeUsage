@@ -310,8 +310,6 @@ class WebSocketManager {
     this.isConnected = true;
     this.hasConnectionError = false;
     logWithTime(`WebSocket已连接: ${this.url}`);
-    
-    vscode.window.showInformationMessage(t('messages.websocketConnected', { url: this.url || '' }));
     this.notifyStatusChange();
   }
 
