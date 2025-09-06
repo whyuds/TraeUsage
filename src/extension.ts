@@ -266,13 +266,13 @@ class WebSocketManager {
           resolve(true);
         });
 
-        this.ws!.on('close', (code, reason) => {
+        this.ws!.on('close', (code: number | undefined, reason: Buffer<ArrayBufferLike> | undefined) => {
           clearTimeout(connectionTimeout);
           this.onClose(code, reason);
           resolve(false);
         });
 
-        this.ws!.on('error', (error) => {
+        this.ws!.on('error', (error: Error) => {
           clearTimeout(connectionTimeout);
           this.onError(error);
           resolve(false);
