@@ -672,7 +672,18 @@ class TraeUsageProvider {
       } else {
         sections.push('🟡 Connecting...');
       }
-    }    
+    }
+    
+    // 4. 最近更新时间
+    const now = new Date();
+    const updateTime = now.toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).replace(/\/(\d{2})\/(\d{2})/, '$1/$2').replace(/, /, ' ');
+    sections.push(`Updated: ${updateTime}`);
     
     return sections.join('\n');
   }
