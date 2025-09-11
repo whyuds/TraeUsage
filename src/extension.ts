@@ -266,7 +266,7 @@ class WebSocketManager {
           resolve(true);
         });
 
-        this.ws!.on('close', (code: number | undefined, reason: Buffer<ArrayBufferLike> | undefined) => {
+        this.ws!.on('close', (code: number | undefined, reason: Buffer | undefined) => {
           clearTimeout(connectionTimeout);
           this.onClose(code, reason);
           resolve(false);
@@ -636,10 +636,7 @@ class TraeUsageProvider {
       return `${t('statusBar.clickToConfigureSession')}\n\n${t('statusBar.clickInstructions')}`;
     }
 
-    const sections: string[] = [
-      t('tooltip.title'),
-      '═'.repeat(30)
-    ];
+    const sections: string[] = [];
 
     const validPacks = this.usageData.user_entitlement_pack_list.filter(pack => 
       this.hasValidUsageData(pack)
@@ -648,84 +645,39 @@ class TraeUsageProvider {
     if (validPacks.length === 0) {
       sections.push(t('tooltip.noValidPacks'));
     } else {
-      validPacks.forEach((pack, index) => {
-        sections.push(...this.buildPackSection(pack, index));
-        
-        if (index < validPacks.length - 1) {
-          sections.push('', '-'.repeat(30), '');
-        }
-      });
+      // 只显示第一个有效订阅包的Premium Fast Request信息
+      const pack = validPacks[0];
+      const { usage, entitlement_base_info } = pack;
+      const { quota } = entitlement_base_info;
+      
+      // 1. Premium Fast Request使用情况(带进度条)
+      const fastUsed = usage.premium_model_fast_request_usage;
+      const fastLimit = quota.premium_model_fast_request_limit;
+      const percentage = Math.round((fastUsed / fastLimit) * 100);
+      const progressBarLength = 25;
+      const filledLength = Math.round((fastUsed / fastLimit) * progressBarLength);
+      const progressBar = '█'.repeat(filledLength) + '░'.repeat(progressBarLength - filledLength);
+      sections.push(`Expire: ${formatTimestamp(entitlement_base_info.end_time)} Usage: ${fastUsed}/${fastLimit} `)
+      sections.push(`[${progressBar}]`);
+      sections.push('');
     }
 
-    // 如果启用了WebSocket，添加连接状态信息
+    // 3. WebSocket连接状态
     const wsStatus = this.webSocketManager.getConnectionStatus();
     if (wsStatus.enabled) {
-      sections.push('', '-'.repeat(30));
       if (wsStatus.connected) {
-        sections.push('🟢 WebSocket: 已连接');
+        sections.push('🟢 Connected');
       } else if (wsStatus.hasError) {
-        sections.push('🔴 WebSocket: 连接失败');
+        sections.push('🔴 Connection Failed');
       } else {
-        sections.push('🟡 WebSocket: 连接中...');
+        sections.push('🟡 Connecting...');
       }
-    }
+    }    
     
-    sections.push('', '═'.repeat(30), t('statusBar.clickInstructions'));
     return sections.join('\n');
   }
 
-  private buildPackSection(pack: EntitlementPack, index: number): string[] {
-    const sections: string[] = [];
-    const { usage, entitlement_base_info } = pack;
-    const { quota } = entitlement_base_info;
-    
-    const statusText = pack.status === 1 ? t('tooltip.packActive') : t('tooltip.packInactive');
-    sections.push(
-      t('tooltip.packTitle', { index: (index + 1).toString(), status: statusText }),
-      t('tooltip.packExpireTime', { time: formatTimestamp(entitlement_base_info.end_time) }),
-      ''
-    );
-
-    const usageTypes = [
-      { 
-        name: t('serviceTypes.premiumFastRequest'),
-        icon: '⚡',
-        used: usage.premium_model_fast_request_usage,
-        limit: quota.premium_model_fast_request_limit
-      },
-      {
-        name: t('serviceTypes.premiumSlowRequest'),
-        icon: '🐌',
-        used: usage.premium_model_slow_request_usage,
-        limit: quota.premium_model_slow_request_limit
-      },
-      {
-        name: t('serviceTypes.autoCompletion'),
-        icon: '🔧',
-        used: usage.auto_completion_usage,
-        limit: quota.auto_completion_limit
-      },
-      {
-        name: t('serviceTypes.advancedModel'),
-        icon: '🚀',
-        used: usage.advanced_model_request_usage,
-        limit: quota.advanced_model_request_limit
-      }
-    ];
-
-    usageTypes.forEach(type => {
-      if (type.limit !== 0) {
-        const limitText = type.limit === -1 ? '∞' : type.limit.toString();
-        sections.push(`${type.icon} ${type.name}: ${type.used}/${limitText}`);
-      }
-    });
-
-    if (usage.is_flash_consuming) {
-      sections.push(t('tooltip.flashConsuming'));
-    }
-
-    return sections;
-  }
+  // 已移除buildPackSection方法，因为精简后的tooltip不再需要此方法
 
   // ==================== API 调用 ====================
   private async getTokenFromSession(sessionId: string, retryCount = 0): Promise<string | null> {
