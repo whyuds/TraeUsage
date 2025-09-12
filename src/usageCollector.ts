@@ -13,6 +13,8 @@ import { t } from './i18n';
 const DEFAULT_HOST = 'https://api-sg-central.trae.ai';
 const API_TIMEOUT = 3000;
 const USAGE_DATA_FILE = 'usage_data.json';
+const MAX_RETRIES = 5; // 最大重试次数
+const RETRY_DELAY = 1000; // 重试延迟（毫秒）
 
 export class UsageDetailCollector {
   private context: vscode.ExtensionContext;
@@ -117,30 +119,64 @@ export class UsageDetailCollector {
     return { start_time, end_time };
   }
 
+  // 带重试机制的通用API请求函数
+  private async apiRequestWithRetry<T>(
+    requestFn: () => Promise<T>,
+    operationName: string,
+    maxRetries: number = MAX_RETRIES
+  ): Promise<T> {
+    let lastError: any;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await requestFn();
+        if (attempt > 1) {
+          logWithTime(`${operationName} 在第${attempt}次尝试后成功`);
+        }
+        return result;
+      } catch (error) {
+        lastError = error;
+        logWithTime(`${operationName} 第${attempt}次尝试失败: ${String(error)}`);
+        
+        if (attempt < maxRetries) {
+          const delay = RETRY_DELAY * attempt; // 递增延迟
+          logWithTime(`等待${delay}ms后进行第${attempt + 1}次重试`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    
+    throw new Error(`${operationName} 在${maxRetries}次重试后仍然失败: ${String(lastError)}`);
+  }
+
   private async getSubscriptionTimeRange(authToken: string): Promise<{ start_time: number; end_time: number } | null> {
     try {
-      const currentHost = this.getHost();
-      const response = await axios.post<ApiResponse>(
-        `${currentHost}/trae/api/v1/pay/user_current_entitlement_list`,
-        {},
-        {
-          headers: {
-            'authorization': `Cloud-IDE-JWT ${authToken}`,
-            'Host': new URL(currentHost).hostname,
-            'Content-Type': 'application/json'
-          },
-          timeout: API_TIMEOUT
-        }
-      );
+      const result = await this.apiRequestWithRetry(async () => {
+        const currentHost = this.getHost();
+        const response = await axios.post<ApiResponse>(
+          `${currentHost}/trae/api/v1/pay/user_current_entitlement_list`,
+          {},
+          {
+            headers: {
+              'authorization': `Cloud-IDE-JWT ${authToken}`,
+              'Host': new URL(currentHost).hostname,
+              'Content-Type': 'application/json'
+            },
+            timeout: API_TIMEOUT
+          }
+        );
 
-      if (response.data.user_entitlement_pack_list?.length > 0) {
-        const pack = response.data.user_entitlement_pack_list[0];
-        return {
-          start_time: pack.entitlement_base_info.start_time,
-          end_time: pack.entitlement_base_info.end_time
-        };
-      }
-      return null;
+        if (response.data.user_entitlement_pack_list?.length > 0) {
+          const pack = response.data.user_entitlement_pack_list[0];
+          return {
+            start_time: pack.entitlement_base_info.start_time,
+            end_time: pack.entitlement_base_info.end_time
+          };
+        }
+        throw new Error('No entitlement pack found');
+      }, '获取订阅时间范围');
+
+      return result;
     } catch (error) {
       logWithTime(t('usageCollector.getSubscriptionFailed', { error: String(error) }));
       return null;
@@ -160,7 +196,14 @@ export class UsageDetailCollector {
     let collectedCount = 0;
     let updatedCount = 0;
 
+    // 创建数据的深拷贝，用于临时存储
+    const tempData: StoredUsageData = {
+      ...existingData,
+      usage_details: { ...existingData.usage_details }
+    };
+
     try {
+      // 获取第一页数据以确定总页数
       const firstPageResponse = await this.fetchUsageDetailsPage(authToken, start_time, end_time, pageNum, pageSize);
       if (!firstPageResponse) {
         throw new Error(t('usageCollector.cannotGetUsageDetails'));
@@ -170,38 +213,57 @@ export class UsageDetailCollector {
       const totalPages = Math.ceil(totalRecords / pageSize);
       logWithTime(t('usageCollector.startCollecting', { total: totalRecords, pages: totalPages }));
 
-      // 处理第一页数据
-      const { collected, updated } = this.processPageData(firstPageResponse.user_usage_group_by_sessions, existingData);
-      collectedCount += collected;
-      updatedCount += updated;
+      // 存储所有页面的数据
+      const allPagesData: UsageDetailItem[] = [];
+      
+      // 添加第一页数据
+      allPagesData.push(...firstPageResponse.user_usage_group_by_sessions);
 
-      // 处理剩余页面
+      // 获取剩余页面数据
       for (pageNum = 2; pageNum <= totalPages; pageNum++) {
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         const pageResponse = await this.fetchUsageDetailsPage(authToken, start_time, end_time, pageNum, pageSize);
-        if (pageResponse) {
-          const { collected, updated } = this.processPageData(pageResponse.user_usage_group_by_sessions, existingData);
-          collectedCount += collected;
-          updatedCount += updated;
-          
-          logWithTime(t('usageCollector.collectedPage', { page: pageNum, collected, updated }));
+        if (!pageResponse) {
+          throw new Error(`获取第${pageNum}页数据失败`);
         }
+        
+        allPagesData.push(...pageResponse.user_usage_group_by_sessions);
+        logWithTime(`成功获取第${pageNum}页数据，包含${pageResponse.user_usage_group_by_sessions.length}条记录`);
       }
 
-      // 更新数据并保存
-      existingData.last_update_time = Math.floor(Date.now() / 1000);
-      existingData.start_time = subscriptionRange.start_time;
-      existingData.end_time = subscriptionRange.end_time;
+      // 只有所有页面都成功获取后，才处理数据
+      logWithTime(`所有${totalPages}页数据获取成功，开始处理数据`);
       
-      await this.saveUsageData(existingData);
+      // 处理所有数据
+      allPagesData.forEach(item => {
+        const sessionId = item.session_id;
+        if (tempData.usage_details[sessionId]) {
+          // 检查是否需要更新（比较usage_time）
+          if (tempData.usage_details[sessionId].usage_time !== item.usage_time) {
+            tempData.usage_details[sessionId] = item;
+            updatedCount++;
+          }
+        } else {
+          tempData.usage_details[sessionId] = item;
+          collectedCount++;
+        }
+      });
+
+      // 更新时间戳
+      tempData.last_update_time = Math.floor(Date.now() / 1000);
+      tempData.start_time = subscriptionRange.start_time;
+      tempData.end_time = subscriptionRange.end_time;
+      
+      // 只有在所有数据都处理成功后才保存
+      await this.saveUsageData(tempData);
       
       // 只在收集完成后显示通知
       const choice = await vscode.window.showInformationMessage(
         t('usageCollector.collectionCompleteMessage', { 
           collected: collectedCount, 
           updated: updatedCount, 
-          total: Object.keys(existingData.usage_details).length 
+          total: Object.keys(tempData.usage_details).length 
         }),
         t('usageCollector.viewDashboard')
       );
@@ -212,29 +274,9 @@ export class UsageDetailCollector {
 
     } catch (error) {
       logWithTime(t('usageCollector.collectionError', { error: String(error) }));
+      // 发生错误时不保存任何数据
       throw error;
     }
-  }
-
-  private processPageData(items: UsageDetailItem[], existingData: StoredUsageData): { collected: number; updated: number } {
-    let collected = 0;
-    let updated = 0;
-
-    items.forEach(item => {
-      const sessionId = item.session_id;
-      if (existingData.usage_details[sessionId]) {
-        // 检查是否需要更新（比较usage_time）
-        if (existingData.usage_details[sessionId].usage_time !== item.usage_time) {
-          existingData.usage_details[sessionId] = item;
-          updated++;
-        }
-      } else {
-        existingData.usage_details[sessionId] = item;
-        collected++;
-      }
-    });
-
-    return { collected, updated };
   }
 
   private async fetchUsageDetailsPage(
@@ -245,32 +287,36 @@ export class UsageDetailCollector {
     pageSize: number
   ): Promise<UsageDetailResponse | null> {
     try {
-      const currentHost = this.getHost();
-      const url = `${currentHost}/trae/api/v1/pay/query_user_usage_group_by_session`;
-      const requestBody = {
-        start_time,
-        end_time,
-        page_size: pageSize,
-        page_num: pageNum
-      };
-      const headers = {
-        'authorization': `Cloud-IDE-JWT ${authToken}`,
-        'Host': new URL(currentHost).hostname,
-        'Content-Type': 'application/json'
-      };
+      const result = await this.apiRequestWithRetry(async () => {
+        const currentHost = this.getHost();
+        const url = `${currentHost}/trae/api/v1/pay/query_user_usage_group_by_session`;
+        const requestBody = {
+          start_time,
+          end_time,
+          page_size: pageSize,
+          page_num: pageNum
+        };
+        const headers = {
+          'authorization': `Cloud-IDE-JWT ${authToken}`,
+          'Host': new URL(currentHost).hostname,
+          'Content-Type': 'application/json'
+        };
 
-      logWithTime(t('usageCollector.requestPageData', { page: pageNum, url }));
+        logWithTime(t('usageCollector.requestPageData', { page: pageNum, url }));
 
-      const response = await axios.post<UsageDetailResponse>(
-        url,
-        requestBody,
-        {
-          headers,
-          timeout: 10000
-        }
-      );
+        const response = await axios.post<UsageDetailResponse>(
+          url,
+          requestBody,
+          {
+            headers,
+            timeout: 10000
+          }
+        );
 
-      return response.data;
+        return response.data;
+      }, `获取第${pageNum}页使用详情`);
+
+      return result;
     } catch (error: any) {
       logWithTime(t('usageCollector.fetchPageFailed', { page: pageNum, error: String(error) }));
       return null;
@@ -305,23 +351,26 @@ export class UsageDetailCollector {
   }
 
   private async getAuthToken(sessionId: string): Promise<string | null> {
-    const currentHost = this.getHost();
-    
     try {
-      const response = await axios.post<TokenResponse>(
-        `${currentHost}/cloudide/api/v3/common/GetUserToken`,
-        {},
-        {
-          headers: {
-            'Cookie': `X-Cloudide-Session=${sessionId}`,
-            'Host': new URL(currentHost).hostname,
-            'Content-Type': 'application/json'
-          },
-          timeout: API_TIMEOUT
-        }
-      );
+      const result = await this.apiRequestWithRetry(async () => {
+        const currentHost = this.getHost();
+        const response = await axios.post<TokenResponse>(
+          `${currentHost}/cloudide/api/v3/common/GetUserToken`,
+          {},
+          {
+            headers: {
+              'Cookie': `X-Cloudide-Session=${sessionId}`,
+              'Host': new URL(currentHost).hostname,
+              'Content-Type': 'application/json'
+            },
+            timeout: API_TIMEOUT
+          }
+        );
 
-      return response.data.Result.Token;
+        return response.data.Result.Token;
+      }, '获取认证Token');
+
+      return result;
     } catch (error) {
       logWithTime(t('usageCollector.getTokenFailed', { error: String(error) }));
       return null;

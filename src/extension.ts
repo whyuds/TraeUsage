@@ -384,7 +384,6 @@ class WebSocketManager {
       const response = await axios.get('https://api.ipify.org?format=json', { timeout: 3000 });
       return response.data.ip;
     } catch (error) {
-      logWithTime(`获取IP地址失败: ${error}`);
       return 'unknown';
     }
   }
@@ -418,7 +417,7 @@ class WebSocketManager {
       this.cachedHeartbeatData.group_id = groupId.trim();
     }
     //logWithTime(`心跳数据已更新: ${JSON.stringify(this.cachedHeartbeatData, null, 2)}`);
-    logWithTime(`心跳数据已更新`);
+    logWithTime(`更新心跳数据已`);
 
     // 心跳数据更新后，如果启用了WebSocket并且有URL，立即尝试发送一次心跳
     if (this.enabled && this.url) {
@@ -710,7 +709,6 @@ class TraeUsageProvider {
   // ==================== API 调用 ====================
   private async getTokenFromSession(sessionId: string, retryCount = 0): Promise<string | null> {
     if (this.cachedToken && this.cachedSessionId === sessionId) {
-      logWithTime('使用缓存的Token');
       return this.cachedToken;
     }
 
@@ -730,7 +728,7 @@ class TraeUsageProvider {
         }
       );
 
-      logWithTime('获取Token成功');
+      logWithTime('更新Token');
       this.cachedToken = response.data.Result.Token;
       this.cachedSessionId = sessionId;
       return this.cachedToken;
@@ -816,7 +814,7 @@ class TraeUsageProvider {
 
   private async handleApiResponse(data: ApiResponse): Promise<void> {
     this.usageData = data;
-    logWithTime('获取使用量数据成功');
+    logWithTime('更新使用量数据');
     
     if (this.usageData?.code === 1001) {
       this.handleTokenExpired();
