@@ -24,18 +24,22 @@ export class UsageDetailCollector {
 
   public async collectUsageDetails(): Promise<void> {
     if (this.isCollecting) {
+      logWithTime('收集操作已在进行中，跳过本次请求');
       vscode.window.showWarningMessage(t('usageCollector.alreadyCollecting'));
       return;
     }
 
+    logWithTime('开始收集使用量详情');
     try {
       this.isCollecting = true;
       await this.startCollection();
+      logWithTime('收集使用量详情完成');
     } catch (error) {
       logWithTime(`收集使用量详情失败: ${error}`);
       vscode.window.showErrorMessage(t('usageCollector.collectionError', { error: error?.toString() || 'Unknown error' }));
     } finally {
       this.isCollecting = false;
+      logWithTime('重置收集状态为 false');
     }
   }
 

@@ -417,8 +417,8 @@ class WebSocketManager {
     if (groupId && groupId.trim() !== '') {
       this.cachedHeartbeatData.group_id = groupId.trim();
     }
-
-    logWithTime(`心跳数据已更新: ${JSON.stringify(this.cachedHeartbeatData, null, 2)}`);
+    //logWithTime(`心跳数据已更新: ${JSON.stringify(this.cachedHeartbeatData, null, 2)}`);
+    logWithTime(`心跳数据已更新`);
 
     // 心跳数据更新后，如果启用了WebSocket并且有URL，立即尝试发送一次心跳
     if (this.enabled && this.url) {
