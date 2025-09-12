@@ -66,13 +66,8 @@ export class UsageDetailCollector {
     
     logWithTime(`开始增量收集，时间范围: ${formatTimestamp(start_time)} - ${formatTimestamp(end_time)}`);
     
-    await vscode.window.withProgress({
-      location: vscode.ProgressLocation.Notification,
-      title: t('usageCollector.alreadyCollecting'),
-      cancellable: true
-    }, async (progress, token) => {
-      return this.collectAllPages(authToken, start_time, end_time, existingData, subscriptionTimeRange, progress, token);
-    });
+    // 直接调用收集函数，不显示进度通知
+    await this.collectAllPages(authToken, start_time, end_time, existingData, subscriptionTimeRange);
   }
 
   private async loadExistingData(): Promise<StoredUsageData> {
@@ -149,9 +144,7 @@ export class UsageDetailCollector {
     start_time: number, 
     end_time: number, 
     existingData: StoredUsageData,
-    subscriptionRange: { start_time: number; end_time: number },
-    progress: vscode.Progress<{ message?: string; increment?: number }>,
-    token: vscode.CancellationToken
+    subscriptionRange: { start_time: number; end_time: number }
   ): Promise<void> {
     let pageNum = 1;
     const pageSize = 50;
@@ -174,14 +167,8 @@ export class UsageDetailCollector {
       collectedCount += collected;
       updatedCount += updated;
 
-      progress.report({ message: t('usageCollector.collectingPage', { current: 1, total: totalPages, collected: collectedCount, updated: updatedCount }), increment: 0 });
-
       // 处理剩余页面
       for (pageNum = 2; pageNum <= totalPages; pageNum++) {
-        if (token.isCancellationRequested) {
-          throw new Error(t('usageCollector.userCancelled'));
-        }
-
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         const pageResponse = await this.fetchUsageDetailsPage(authToken, start_time, end_time, pageNum, pageSize);
@@ -190,10 +177,6 @@ export class UsageDetailCollector {
           collectedCount += collected;
           updatedCount += updated;
           
-          progress.report({ 
-            message: t('usageCollector.collectingPage', { current: pageNum, total: totalPages, collected: collectedCount, updated: updatedCount }), 
-            increment: 100 / totalPages 
-          });
           logWithTime(t('usageCollector.collectedPage', { page: pageNum, collected, updated }));
         }
       }
@@ -205,8 +188,7 @@ export class UsageDetailCollector {
       
       await this.saveUsageData(existingData);
       
-      progress.report({ message: t('usageCollector.collectionComplete'), increment: 100 });
-      
+      // 只在收集完成后显示通知
       const choice = await vscode.window.showInformationMessage(
         t('usageCollector.collectionCompleteMessage', { 
           collected: collectedCount, 

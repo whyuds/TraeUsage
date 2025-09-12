@@ -557,6 +557,8 @@ class TraeUsageProvider {
     this.setLoadingState();
     this.clearCache();
     this.fetchUsageData();
+    // 同时执行收集数据的方法
+    this.collectUsageDetails();
   }
 
   private setLoadingState(): void {
