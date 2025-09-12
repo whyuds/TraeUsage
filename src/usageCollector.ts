@@ -8,6 +8,7 @@ import {
 } from './types';
 import { logWithTime, formatTimestamp } from './utils';
 import { ApiResponse, TokenResponse } from './extension';
+import { t } from './i18n';
 
 const DEFAULT_HOST = 'https://api-sg-central.trae.ai';
 const API_TIMEOUT = 3000;
@@ -23,7 +24,7 @@ export class UsageDetailCollector {
 
   public async collectUsageDetails(): Promise<void> {
     if (this.isCollecting) {
-      vscode.window.showWarningMessage('收集正在进行中，请稍候...');
+      vscode.window.showWarningMessage(t('usageCollector.alreadyCollecting'));
       return;
     }
 
@@ -32,7 +33,7 @@ export class UsageDetailCollector {
       await this.startCollection();
     } catch (error) {
       logWithTime(`收集使用量详情失败: ${error}`);
-      vscode.window.showErrorMessage(`收集失败: ${error?.toString() || 'Unknown error'}`);
+      vscode.window.showErrorMessage(t('usageCollector.collectionError', { error: error?.toString() || 'Unknown error' }));
     } finally {
       this.isCollecting = false;
     }
@@ -41,19 +42,19 @@ export class UsageDetailCollector {
   private async startCollection(): Promise<void> {
     const sessionId = this.getSessionId();
     if (!sessionId) {
-      vscode.window.showWarningMessage('请先设置Session ID');
+      vscode.window.showWarningMessage(t('usageCollector.pleaseSetSessionId'));
       return;
     }
 
     const authToken = await this.getAuthToken(sessionId);
     if (!authToken) {
-      vscode.window.showErrorMessage('无法获取认证Token');
+      vscode.window.showErrorMessage(t('usageCollector.cannotGetToken'));
       return;
     }
 
     const subscriptionTimeRange = await this.getSubscriptionTimeRange(authToken);
     if (!subscriptionTimeRange) {
-      vscode.window.showErrorMessage('无法获取订阅信息');
+      vscode.window.showErrorMessage(t('usageCollector.cannotGetSubscription'));
       return;
     }
 
@@ -67,7 +68,7 @@ export class UsageDetailCollector {
     
     await vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
-      title: '正在收集使用量详情...',
+      title: t('usageCollector.alreadyCollecting'),
       cancellable: true
     }, async (progress, token) => {
       return this.collectAllPages(authToken, start_time, end_time, existingData, subscriptionTimeRange, progress, token);
@@ -80,10 +81,10 @@ export class UsageDetailCollector {
     try {
       const fileContent = await vscode.workspace.fs.readFile(dataPath);
       const data = JSON.parse(fileContent.toString()) as StoredUsageData;
-      logWithTime(`加载现有数据成功，包含 ${Object.keys(data.usage_details).length} 条记录`);
+      logWithTime(t('usageCollector.loadExistingDataSuccess', { count: Object.keys(data.usage_details).length }));
       return data;
     } catch (error) {
-      logWithTime(`未找到现有数据文件，将创建新文件`);
+      logWithTime(t('usageCollector.createNewDataFile'));
       return {
         last_update_time: 0,
         start_time: 0,
@@ -138,7 +139,7 @@ export class UsageDetailCollector {
       }
       return null;
     } catch (error) {
-      logWithTime(`获取订阅信息失败: ${error}`);
+      logWithTime(t('usageCollector.getSubscriptionFailed', { error: String(error) }));
       return null;
     }
   }
@@ -161,24 +162,24 @@ export class UsageDetailCollector {
     try {
       const firstPageResponse = await this.fetchUsageDetailsPage(authToken, start_time, end_time, pageNum, pageSize);
       if (!firstPageResponse) {
-        throw new Error('无法获取使用量详情');
+        throw new Error(t('usageCollector.cannotGetUsageDetails'));
       }
 
       totalRecords = firstPageResponse.total;
       const totalPages = Math.ceil(totalRecords / pageSize);
-      logWithTime(`开始收集使用量详情，总记录数: ${totalRecords}, 总页数: ${totalPages}`);
+      logWithTime(t('usageCollector.startCollecting', { total: totalRecords, pages: totalPages }));
 
       // 处理第一页数据
       const { collected, updated } = this.processPageData(firstPageResponse.user_usage_group_by_sessions, existingData);
       collectedCount += collected;
       updatedCount += updated;
 
-      progress.report({ message: `收集第 1/${totalPages} 页 (新增: ${collectedCount}, 更新: ${updatedCount})`, increment: 0 });
+      progress.report({ message: t('usageCollector.collectingPage', { current: 1, total: totalPages, collected: collectedCount, updated: updatedCount }), increment: 0 });
 
       // 处理剩余页面
       for (pageNum = 2; pageNum <= totalPages; pageNum++) {
         if (token.isCancellationRequested) {
-          throw new Error('用户取消了收集操作');
+          throw new Error(t('usageCollector.userCancelled'));
         }
 
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -190,10 +191,10 @@ export class UsageDetailCollector {
           updatedCount += updated;
           
           progress.report({ 
-            message: `收集第 ${pageNum}/${totalPages} 页 (新增: ${collectedCount}, 更新: ${updatedCount})`, 
+            message: t('usageCollector.collectingPage', { current: pageNum, total: totalPages, collected: collectedCount, updated: updatedCount }), 
             increment: 100 / totalPages 
           });
-          logWithTime(`已收集第 ${pageNum} 页，新增: ${collected}, 更新: ${updated}`);
+          logWithTime(t('usageCollector.collectedPage', { page: pageNum, collected, updated }));
         }
       }
 
@@ -204,19 +205,23 @@ export class UsageDetailCollector {
       
       await this.saveUsageData(existingData);
       
-      progress.report({ message: '收集完成!', increment: 100 });
+      progress.report({ message: t('usageCollector.collectionComplete'), increment: 100 });
       
       const choice = await vscode.window.showInformationMessage(
-        `收集完成！新增 ${collectedCount} 条记录，更新 ${updatedCount} 条记录，总记录数: ${Object.keys(existingData.usage_details).length}`,
-        '查看仪表板'
+        t('usageCollector.collectionCompleteMessage', { 
+          collected: collectedCount, 
+          updated: updatedCount, 
+          total: Object.keys(existingData.usage_details).length 
+        }),
+        t('usageCollector.viewDashboard')
       );
 
-      if (choice === '查看仪表板') {
+      if (choice === t('usageCollector.viewDashboard')) {
         vscode.commands.executeCommand('traeUsage.showUsageDashboard');
       }
 
     } catch (error) {
-      logWithTime(`收集过程中出错: ${error}`);
+      logWithTime(t('usageCollector.collectionError', { error: String(error) }));
       throw error;
     }
   }
@@ -264,7 +269,7 @@ export class UsageDetailCollector {
         'Content-Type': 'application/json'
       };
 
-      logWithTime(`请求第${pageNum}页数据: ${url}`);
+      logWithTime(t('usageCollector.requestPageData', { page: pageNum, url }));
 
       const response = await axios.post<UsageDetailResponse>(
         url,
@@ -277,7 +282,7 @@ export class UsageDetailCollector {
 
       return response.data;
     } catch (error: any) {
-      logWithTime(`获取第 ${pageNum} 页使用量详情失败: ${error}`);
+      logWithTime(t('usageCollector.fetchPageFailed', { page: pageNum, error: String(error) }));
       return null;
     }
   }
@@ -291,11 +296,11 @@ export class UsageDetailCollector {
       
       const jsonData = JSON.stringify(data, null, 2);
       await vscode.workspace.fs.writeFile(dataPath, Buffer.from(jsonData, 'utf8'));
-      logWithTime(`使用量数据已保存到: ${dataPath.fsPath}`);
+      logWithTime(t('usageCollector.dataSaved', { path: dataPath.fsPath }));
       
     } catch (error) {
-      logWithTime(`保存使用量数据失败: ${error}`);
-      throw new Error(`保存数据失败: ${error}`);
+      logWithTime(t('usageCollector.saveDataFailed', { error: String(error) }));
+      throw new Error(t('usageCollector.saveDataError', { error: String(error) }));
     }
   }
 
@@ -328,7 +333,7 @@ export class UsageDetailCollector {
 
       return response.data.Result.Token;
     } catch (error) {
-      logWithTime(`获取Token失败: ${error}`);
+      logWithTime(t('usageCollector.getTokenFailed', { error: String(error) }));
       return null;
     }
   }

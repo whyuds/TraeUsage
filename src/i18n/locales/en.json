@@ -94,5 +94,30 @@
     "premiumSlowRequest": "Premium Slow Request",
     "autoCompletion": "Auto Completion",
     "advancedModel": "Advanced Model"
+  },
+  
+  "usageCollector": {
+    "alreadyCollecting": "Collecting usage details, please wait...",
+    "pleaseSetSessionId": "Please configure Session ID in settings first",
+    "cannotGetToken": "Cannot get authentication token, please check if Session ID is correct",
+    "cannotGetSubscription": "Cannot get subscription information, please check network connection",
+    "loadExistingDataSuccess": "Successfully loaded existing data with {count} records",
+    "createNewDataFile": "No existing data file found, will create new file",
+    "cannotGetUsageDetails": "Cannot get usage details",
+    "startCollecting": "Starting to collect usage details, total records: {total}, total pages: {pages}",
+    "collectingPage": "Collecting page {current}/{total} (new: {collected}, updated: {updated})",
+    "userCancelled": "User cancelled the collection operation",
+    "collectedPage": "Collected page {page}, new: {collected}, updated: {updated}",
+    "collectionComplete": "Collection complete!",
+    "collectionCompleteMessage": "Collection complete! Added {collected} records, updated {updated} records, total records: {total}",
+    "viewDashboard": "View Dashboard",
+    "collectionError": "Error during collection: {error}",
+    "requestPageData": "Requesting page {page} data: {url}",
+    "fetchPageFailed": "Failed to fetch page {page} usage details: {error}",
+    "dataSaved": "Usage data saved to: {path}",
+    "saveDataFailed": "Failed to save usage data: {error}",
+    "saveDataError": "Failed to save data: {error}",
+    "getTokenFailed": "Failed to get token: {error}",
+    "getSubscriptionFailed": "Failed to get subscription information: {error}"
   }
 }

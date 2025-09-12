@@ -1,6 +1,8 @@
 {
-  "commands.refresh.title": "Refresh Usage Data",
-  "commands.updateSession.title": "Set Session ID",
+  "commands.refresh.title": "TraeUsage: Refresh Usage Data",
+  "commands.updateSession.title": "TraeUsage: Set Session ID",
+  "commands.collectUsageDetails.title": "TraeUsage: Collect Usage Details",
+  "commands.showUsageDashboard.title": "TraeUsage: Show Usage Dashboard",
   "views.traeUsageView.name": "Trae Usage",
   "configuration.title": "Trae Usage",
   "configuration.sessionId.description": "Trae AI session ID (X-Cloudide-Session cookie value)",

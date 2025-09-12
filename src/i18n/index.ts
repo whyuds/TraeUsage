@@ -88,6 +88,32 @@ export interface Translations {
     autoCompletion: string;
     advancedModel: string;
   };
+  
+  // 使用量收集器相关
+  usageCollector: {
+    alreadyCollecting: string;
+    pleaseSetSessionId: string;
+    cannotGetToken: string;
+    cannotGetSubscription: string;
+    loadExistingDataSuccess: string;
+    createNewDataFile: string;
+    cannotGetUsageDetails: string;
+    startCollecting: string;
+    collectingPage: string;
+    userCancelled: string;
+    collectedPage: string;
+    collectionComplete: string;
+    collectionCompleteMessage: string;
+    viewDashboard: string;
+    collectionError: string;
+    requestPageData: string;
+    fetchPageFailed: string;
+    dataSaved: string;
+    saveDataFailed: string;
+    saveDataError: string;
+    getTokenFailed: string;
+    getSubscriptionFailed: string;
+  };
 }
 
 // 当前语言

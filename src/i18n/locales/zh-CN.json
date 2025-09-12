@@ -94,5 +94,30 @@
     "premiumSlowRequest": "Premium Slow Request",
     "autoCompletion": "Auto Completion",
     "advancedModel": "Advanced Model"
+  },
+  
+  "usageCollector": {
+    "alreadyCollecting": "正在收集使用量详情，请稍候...",
+    "pleaseSetSessionId": "请先在设置中配置 Session ID",
+    "cannotGetToken": "无法获取认证令牌，请检查 Session ID 是否正确",
+    "cannotGetSubscription": "无法获取订阅信息，请检查网络连接",
+    "loadExistingDataSuccess": "加载现有数据成功，包含 {count} 条记录",
+    "createNewDataFile": "未找到现有数据文件，将创建新文件",
+    "cannotGetUsageDetails": "无法获取使用量详情",
+    "startCollecting": "开始收集使用量详情，总记录数: {total}, 总页数: {pages}",
+    "collectingPage": "收集第 {current}/{total} 页 (新增: {collected}, 更新: {updated})",
+    "userCancelled": "用户取消了收集操作",
+    "collectedPage": "已收集第 {page} 页，新增: {collected}, 更新: {updated}",
+    "collectionComplete": "收集完成!",
+    "collectionCompleteMessage": "收集完成！新增 {collected} 条记录，更新 {updated} 条记录，总记录数: {total}",
+    "viewDashboard": "查看仪表板",
+    "collectionError": "收集过程中出错: {error}",
+    "requestPageData": "请求第{page}页数据: {url}",
+    "fetchPageFailed": "获取第 {page} 页使用量详情失败: {error}",
+    "dataSaved": "使用量数据已保存到: {path}",
+    "saveDataFailed": "保存使用量数据失败: {error}",
+    "saveDataError": "保存数据失败: {error}",
+    "getTokenFailed": "获取Token失败: {error}",
+    "getSubscriptionFailed": "获取订阅信息失败: {error}"
   }
 }
