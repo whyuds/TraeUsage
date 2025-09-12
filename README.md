@@ -4,11 +4,26 @@
 
 一个VSCode扩展，用于实时监控Trae AI的使用量统计。
 
-<img src="img/image.png" alt="功能截图" height="300">
 
-## 使用演示
+### 配置演示
 
-<img src="img/traeusage_shot.gif" alt="功能截图" width="600">
+<div align="center">
+  <img src="img/traeusage_shot.gif" alt="功能截图" width="600">
+</div>
+
+### 状态栏
+
+<div align="center">
+<img src="img/Bar.jpg" alt="功能截图" width="300"></div>
+
+### 详细看板
+
+1. 点击状态栏图标，获取数据并更新看板
+2. Ctrl+Shift+P 打开命令面板，输入TraeUsage: Collect Usage Details
+
+<div align="center">
+<img src="img/Dashboard.jpg" alt="功能截图" width="600">
+</div>
 
 ## 安装和使用
 
