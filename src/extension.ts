@@ -4,6 +4,9 @@ import * as cp from 'child_process';
 import axios from 'axios';
 import WebSocket from 'ws';
 import { initializeI18n, t } from './i18n';
+import { UsageDetailCollector } from './usageCollector';
+import { UsageDashboardGenerator } from './dashboardGenerator';
+import { disposeOutputChannel } from './utils';
 
 // ==================== 类型定义 ====================
 interface UsageData {
@@ -36,14 +39,14 @@ interface EntitlementPack {
   status: number;
 }
 
-interface ApiResponse {
+export interface ApiResponse {
   code?: number;
   message?: string;
   is_pay_freshman: boolean;
   user_entitlement_pack_list: EntitlementPack[];
 }
 
-interface TokenResponse {
+export interface TokenResponse {
   ResponseMetadata: {
     RequestId: string;
     TraceID: string;
@@ -473,17 +476,29 @@ class TraeUsageProvider {
   private isRefreshing = false;
   private isManualRefresh = false;
   private webSocketManager: WebSocketManager;
+  private usageDetailCollector: UsageDetailCollector;
+  private dashboardGenerator: UsageDashboardGenerator;
 
   constructor(private context: vscode.ExtensionContext) {
     this.statusBarItem = this.createStatusBarItem();
     this.webSocketManager = new WebSocketManager(context);
-    
+    this.usageDetailCollector = new UsageDetailCollector(context);
+    this.dashboardGenerator = new UsageDashboardGenerator(context);
+
     // 设置WebSocket状态变化回调
     this.webSocketManager.setStatusChangeCallback(() => {
       this.updateStatusBar();
     });
     
     this.initialize();
+  }
+
+  public async collectUsageDetails(): Promise<void> {
+    await this.usageDetailCollector.collectUsageDetails();
+  }
+
+  public async showUsageDashboard(): Promise<void> {
+    await this.dashboardGenerator.showDashboard();
   }
 
   private createStatusBarItem(): vscode.StatusBarItem {
@@ -964,6 +979,7 @@ class TraeUsageProvider {
     if (outputChannel) {
       outputChannel.dispose();
     }
+    disposeOutputChannel();
   }
 }
 
@@ -1042,6 +1058,12 @@ function registerCommands(context: vscode.ExtensionContext, provider: TraeUsageP
     }),
     vscode.commands.registerCommand('traeUsage.updateSession', async () => {
       await showUpdateSessionDialog();
+    }),
+    vscode.commands.registerCommand('traeUsage.collectUsageDetails', () => {
+      provider.collectUsageDetails();
+    }),
+    vscode.commands.registerCommand('traeUsage.showUsageDashboard', () => {
+      provider.showUsageDashboard();
     })
   ];
   

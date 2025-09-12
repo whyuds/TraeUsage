@@ -31,6 +31,16 @@
         "command": "traeUsage.updateSession",
         "title": "%commands.updateSession.title%",
         "icon": "$(settings-gear)"
+      },
+      {
+        "command": "traeUsage.collectUsageDetails",
+        "title": "收集使用量详情",
+        "icon": "$(database)"
+      },
+      {
+        "command": "traeUsage.showUsageDashboard",
+        "title": "显示使用量仪表板",
+        "icon": "$(graph)"
       }
     ],
 
@@ -81,6 +91,11 @@
           "type": "string",
           "default": "",
           "description": "%configuration.websocketGroupId.description%"
+        },
+        "traeUsage.lastUsageDataFile": {
+          "type": "string",
+          "default": "",
+          "description": "最新使用量数据文件路径"
         }
       }
     }
