@@ -18,9 +18,6 @@
 
 ### 详细看板
 
-1. 点击状态栏图标，获取数据并更新看板
-2. Ctrl+Shift+P 打开命令面板，输入TraeUsage: Collect Usage Details
-
 <div align="center">
 <img src="img/Dashboard.jpg" alt="功能截图" width="600">
 </div>
@@ -47,6 +44,7 @@ Trae的应用市场搜索Trae Usage
 3. 登录并浏览usage页面，自动获取Session ID
 4. 点击Chrome扩展图标，自动复制Session ID至粘贴板
 5. 返回Trae，Trae Usage扩展会自动识别粘贴板并配置Session ID
+6. Ctrl+Shift+P 打开命令面板，输入TraeUsage: Collect Usage Details
 
 ### 3. 查看使用量
 
