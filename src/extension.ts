@@ -493,8 +493,8 @@ class TraeUsageProvider {
     this.initialize();
   }
 
-  public async collectUsageDetails(): Promise<void> {
-    await this.usageDetailCollector.collectUsageDetails();
+  public collectUsageDetails(): void {
+    this.usageDetailCollector.collectUsageDetails();
   }
 
   public async showUsageDashboard(): Promise<void> {

@@ -22,7 +22,7 @@ export class UsageDetailCollector {
     this.context = context;
   }
 
-  public async collectUsageDetails(): Promise<void> {
+  public collectUsageDetails(): void {
     if (this.isCollecting) {
       logWithTime('收集操作已在进行中，跳过本次请求');
       vscode.window.showWarningMessage(t('usageCollector.alreadyCollecting'));
@@ -30,17 +30,21 @@ export class UsageDetailCollector {
     }
 
     logWithTime('开始收集使用量详情');
-    try {
-      this.isCollecting = true;
-      await this.startCollection();
-      logWithTime('收集使用量详情完成');
-    } catch (error) {
-      logWithTime(`收集使用量详情失败: ${error}`);
-      vscode.window.showErrorMessage(t('usageCollector.collectionError', { error: error?.toString() || 'Unknown error' }));
-    } finally {
-      this.isCollecting = false;
-      logWithTime('重置收集状态为 false');
-    }
+    this.isCollecting = true;
+    
+    // 在后台异步执行收集操作
+    this.startCollection()
+      .then(() => {
+        logWithTime('收集使用量详情完成');
+      })
+      .catch((error) => {
+        logWithTime(`收集使用量详情失败: ${error}`);
+        vscode.window.showErrorMessage(t('usageCollector.collectionError', { error: error?.toString() || 'Unknown error' }));
+      })
+      .finally(() => {
+        this.isCollecting = false;
+        logWithTime('重置收集状态为 false');
+      });
   }
 
   private async startCollection(): Promise<void> {
