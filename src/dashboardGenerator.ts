@@ -341,12 +341,6 @@ export class UsageDashboardGenerator {
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="time-range">Statistics Period: ${timeRange}</div>
-        <div class="time-range">Last Updated: ${new Date(rawData.last_update_time * 1000).toLocaleString('en-US')}</div>
-        <div class="time-range">Total Records: ${Object.keys(rawData.usage_details).length}</div>
-    </div>
-
     <div class="controls">
         <label>Start Date:</label>
         <input type="date" id="startDate" value="${new Date(minDate).toISOString().split('T')[0]}">
@@ -362,7 +356,7 @@ export class UsageDashboardGenerator {
             <button onclick="filterLast30Days()">Last 30 Days</button>
         </div>
 
-        <button onclick="exportData()">Export Data</button>
+        <button onclick="exportData()">Export Detail</button>
     </div>
 
     <div id="filterInfo" class="filter-info" style="display: none;">
@@ -393,6 +387,12 @@ export class UsageDashboardGenerator {
     <div id="dailyStats" class="chart-section">
         <h2>📅 Daily Usage Statistics</h2>
         ${this.generateDailyStatsTable(summary)}
+    </div>
+
+    <div class="header">
+        <div class="time-range">Statistics Period: ${timeRange}</div>
+        <div class="time-range">Last Updated: ${new Date(rawData.last_update_time * 1000).toLocaleString('en-US')}</div>
+        <div class="time-range">Total Records: ${Object.keys(rawData.usage_details).length}</div>
     </div>
 
     <script>
