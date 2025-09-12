@@ -18,10 +18,10 @@ export class UsageDashboardGenerator {
       const rawData = await this.loadUsageData();
       if (!rawData || Object.keys(rawData.usage_details).length === 0) {
         const choice = await vscode.window.showWarningMessage(
-          '未找到使用量数据，请先收集数据',
-          '立即收集'
+          'No usage data found, please collect data first',
+          'Collect Now'
         );
-        if (choice === '立即收集') {
+        if (choice === 'Collect Now') {
           vscode.commands.executeCommand('traeUsage.collectUsageDetails');
         }
         return;
@@ -29,8 +29,8 @@ export class UsageDashboardGenerator {
 
       await this.generateAndShowDashboard(rawData);
     } catch (error) {
-      logWithTime(`显示仪表板失败: ${error}`);
-      vscode.window.showErrorMessage(`仪表板错误: ${error?.toString() || 'Unknown error'}`);
+      logWithTime(`Failed to display dashboard: ${error}`);
+      vscode.window.showErrorMessage(`Dashboard error: ${error?.toString() || 'Unknown error'}`);
     }
   }
 
@@ -42,7 +42,7 @@ export class UsageDashboardGenerator {
       const jsonData = JSON.parse(fileContent.toString());
       return jsonData as StoredUsageData;
     } catch (error) {
-      logWithTime(`读取使用量数据文件失败: ${error}`);
+      logWithTime(`Failed to read usage data file: ${error}`);
       return null;
     }
   }
@@ -74,7 +74,7 @@ export class UsageDashboardGenerator {
       summary.total_amount += item.amount_float;
       summary.total_cost += item.cost_money_float;
 
-      // 模型统计
+      // Model statistics
       const modelName = item.model_name;
       if (!summary.model_stats[modelName]) {
         summary.model_stats[modelName] = {
@@ -96,7 +96,7 @@ export class UsageDashboardGenerator {
       modelStats.cache_read_tokens += item.extra_info.cache_read_token;
       modelStats.cache_write_tokens += item.extra_info.cache_write_token;
 
-      // 模式统计
+      // Mode statistics
       const mode = item.use_max_mode ? 'Max' : 'Normal';
       if (!summary.mode_stats[mode]) {
         summary.mode_stats[mode] = { count: 0, amount: 0, cost: 0 };
@@ -105,7 +105,7 @@ export class UsageDashboardGenerator {
       summary.mode_stats[mode].amount += item.amount_float;
       summary.mode_stats[mode].cost += item.cost_money_float;
 
-      // 日期统计
+      // Daily statistics
       const date = new Date(item.usage_time * 1000).toISOString().split('T')[0];
       if (!summary.daily_stats[date]) {
         summary.daily_stats[date] = { count: 0, amount: 0, cost: 0, models: [] };
@@ -131,7 +131,7 @@ export class UsageDashboardGenerator {
     
     this.panel = vscode.window.createWebviewPanel(
       'traeUsageDashboard',
-      'Trae 使用量统计',
+      'Trae Usage Statistics',
       vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -139,7 +139,7 @@ export class UsageDashboardGenerator {
       }
     );
 
-    // 监听来自webview的消息
+    // Listen for messages from webview
     this.panel.webview.onDidReceiveMessage(async (message) => {
       switch (message.command) {
         case 'filter':
@@ -178,20 +178,20 @@ export class UsageDashboardGenerator {
 
       if (uri) {
         await vscode.workspace.fs.writeFile(uri, Buffer.from(csvContent, 'utf8'));
-        vscode.window.showInformationMessage(`数据已导出到: ${uri.fsPath}`);
+        vscode.window.showInformationMessage(`Data exported to: ${uri.fsPath}`);
       }
     } catch (error) {
-      vscode.window.showErrorMessage(`导出失败: ${error}`);
+      vscode.window.showErrorMessage(`Export failed: ${error}`);
     }
   }
 
   private generateCSV(details: UsageDetailItem[]): string {
     const headers = [
-      '时间', '模型', '模式', '使用量', '费用', '输入Token', '输出Token', '缓存读取Token', '缓存写入Token', 'Session ID'
+      'Time', 'Model', 'Mode', 'Usage', 'Cost', 'Input Tokens', 'Output Tokens', 'Cache Read Tokens', 'Cache Write Tokens', 'Session ID'
     ];
     
     const rows = details.map(item => [
-      new Date((item.usage_time || 0) * 1000).toLocaleString('zh-CN'),
+      new Date((item.usage_time || 0) * 1000).toLocaleString('en-US'),
       item.model_name || '',
       item.use_max_mode ? 'Max' : 'Normal',
       (item.amount_float || 0).toString(),
@@ -209,18 +209,18 @@ export class UsageDashboardGenerator {
   private generateDashboardHTML(rawData: StoredUsageData, summary: UsageSummary, allUsageDetails: UsageDetailItem[]): string {
     const timeRange = `${formatTimestamp(rawData.start_time)} - ${formatTimestamp(rawData.end_time)}`;
     
-    // 获取日期范围用于过滤器
+    // Get date range for filter
     const dates = allUsageDetails.map(item => new Date(item.usage_time * 1000).toISOString().split('T')[0]);
     const minDate = Math.min(...dates.map(d => new Date(d).getTime()));
     const maxDate = Math.max(...dates.map(d => new Date(d).getTime()));
     
     return `
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trae 使用量统计</title>
+    <title>Trae Usage Statistics</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
@@ -236,10 +236,6 @@ export class UsageDashboardGenerator {
             padding: 20px;
             background-color: var(--vscode-editor-inactiveSelectionBackground);
             border-radius: 8px;
-        }
-        .header h1 {
-            margin: 0 0 10px 0;
-            color: var(--vscode-textLink-foreground);
         }
         .time-range {
             font-size: 14px;
@@ -266,6 +262,11 @@ export class UsageDashboardGenerator {
         }
         .controls button:hover {
             background-color: var(--vscode-button-hoverBackground);
+        }
+        .quick-filters {
+            display: flex;
+            gap: 8px;
+            margin-left: 10px;
         }
         .summary-cards {
             display: grid;
@@ -341,20 +342,27 @@ export class UsageDashboardGenerator {
 </head>
 <body>
     <div class="header">
-        <h1>🚀 Trae AI 使用量统计</h1>
-        <div class="time-range">统计期间: ${timeRange}</div>
-        <div class="time-range">最后更新: ${new Date(rawData.last_update_time * 1000).toLocaleString('zh-CN')}</div>
-        <div class="time-range">总记录数: ${Object.keys(rawData.usage_details).length}</div>
+        <div class="time-range">Statistics Period: ${timeRange}</div>
+        <div class="time-range">Last Updated: ${new Date(rawData.last_update_time * 1000).toLocaleString('en-US')}</div>
+        <div class="time-range">Total Records: ${Object.keys(rawData.usage_details).length}</div>
     </div>
 
     <div class="controls">
-        <label>开始日期:</label>
+        <label>Start Date:</label>
         <input type="date" id="startDate" value="${new Date(minDate).toISOString().split('T')[0]}">
-        <label>结束日期:</label>
+        <label>End Date:</label>
         <input type="date" id="endDate" value="${new Date(maxDate).toISOString().split('T')[0]}">
-        <button onclick="applyFilter()">筛选</button>
-        <button onclick="resetFilter()">重置</button>
-        <button onclick="exportData()">导出数据</button>
+        <button onclick="applyFilter()">Filter</button>
+        <button onclick="resetFilter()">Reset</button>
+        
+        <!-- Quick Filter Buttons -->
+        <div class="quick-filters">
+            <button onclick="filterLast1Day()">Last 1 Day</button>
+            <button onclick="filterLast7Days()">Last 7 Days</button>
+            <button onclick="filterLast30Days()">Last 30 Days</button>
+        </div>
+
+        <button onclick="exportData()">Export Data</button>
     </div>
 
     <div id="filterInfo" class="filter-info" style="display: none;">
@@ -366,24 +374,24 @@ export class UsageDashboardGenerator {
     </div>
 
     <div class="chart-section">
-        <h2>📈 每日使用量趋势</h2>
+        <h2>📈 Daily Usage Trend</h2>
         <div class="chart-container">
             <canvas id="dailyTrendChart"></canvas>
         </div>
     </div>
 
     <div id="modelStats" class="chart-section">
-        <h2>📊 模型使用统计</h2>
+        <h2>📊 Model Usage Statistics</h2>
         ${this.generateModelStatsTable(summary)}
     </div>
 
     <div id="modeStats" class="chart-section">
-        <h2>⚡ 模式使用统计</h2>
+        <h2>⚡ Mode Usage Statistics</h2>
         ${this.generateModeStatsTable(summary)}
     </div>
 
     <div id="dailyStats" class="chart-section">
-        <h2>📅 每日使用统计</h2>
+        <h2>📅 Daily Usage Statistics</h2>
         ${this.generateDailyStatsTable(summary)}
     </div>
 
@@ -395,7 +403,7 @@ export class UsageDashboardGenerator {
         const originalMinDate = '${new Date(minDate).toISOString().split('T')[0]}';
         const originalMaxDate = '${new Date(maxDate).toISOString().split('T')[0]}';
 
-        // 初始化图表
+        // Initialize chart
         function initDailyChart(summary) {
             const ctx = document.getElementById('dailyTrendChart').getContext('2d');
             const dailyData = Object.entries(summary.daily_stats).sort(([a], [b]) => a.localeCompare(b));
@@ -409,14 +417,14 @@ export class UsageDashboardGenerator {
                 data: {
                     labels: dailyData.map(([date]) => date),
                     datasets: [{
-                        label: '使用量',
+                        label: 'Usage',
                         data: dailyData.map(([, stats]) => stats.amount),
                         borderColor: '#4ecdc4',
                         backgroundColor: 'rgba(78, 205, 196, 0.1)',
                         tension: 0.4,
                         fill: true
                     }, {
-                        label: '费用 ($)',
+                        label: 'Cost ($)',
                         data: dailyData.map(([, stats]) => stats.cost),
                         borderColor: '#ff6b6b',
                         backgroundColor: 'rgba(255, 107, 107, 0.1)',
@@ -440,7 +448,7 @@ export class UsageDashboardGenerator {
                             position: 'left',
                             title: {
                                 display: true,
-                                text: '使用量'
+                                text: 'Usage'
                             }
                         },
                         y1: {
@@ -449,7 +457,7 @@ export class UsageDashboardGenerator {
                             position: 'right',
                             title: {
                                 display: true,
-                                text: '费用 ($)'
+                                text: 'Cost ($)'
                             },
                             grid: {
                                 drawOnChartArea: false,
@@ -464,7 +472,7 @@ export class UsageDashboardGenerator {
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
             
-            // 显示筛选信息
+            // Show filter info
             updateFilterInfo(startDate, endDate);
             
             vscode.postMessage({
@@ -478,9 +486,37 @@ export class UsageDashboardGenerator {
             document.getElementById('startDate').value = originalMinDate;
             document.getElementById('endDate').value = originalMaxDate;
             
-            // 隐藏筛选信息
+            // Hide filter info
             document.getElementById('filterInfo').style.display = 'none';
             
+            applyFilter();
+        }
+
+        // Quick Filter Functions
+        function filterLast1Day() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('startDate').value = today;
+            document.getElementById('endDate').value = today;
+            applyFilter();
+        }
+
+        function filterLast7Days() {
+            const endDate = new Date().toISOString().split('T')[0];
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 6); // Include today + previous 6 days = 7 days total
+            startDate.setHours(0, 0, 0, 0);
+            document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+            document.getElementById('endDate').value = endDate;
+            applyFilter();
+        }
+
+        function filterLast30Days() {
+            const endDate = new Date().toISOString().split('T')[0];
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 29); // Include today + previous 29 days = 30 days total
+            startDate.setHours(0, 0, 0, 0);
+            document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+            document.getElementById('endDate').value = endDate;
             applyFilter();
         }
 
@@ -492,7 +528,7 @@ export class UsageDashboardGenerator {
                 filterInfo.style.display = 'none';
             } else {
                 filterInfo.style.display = 'block';
-                filterText.textContent = \`当前筛选范围: \${startDate} 至 \${endDate}\`;
+                filterText.textContent = \`Current Filter Range: \${startDate} to \${endDate}\`;
             }
         }
 
@@ -507,7 +543,7 @@ export class UsageDashboardGenerator {
             });
         }
 
-        // 监听来自扩展的消息
+        // Listen for messages from extension
         window.addEventListener('message', event => {
             const message = event.data;
             switch (message.command) {
@@ -520,35 +556,35 @@ export class UsageDashboardGenerator {
         });
 
         function updateUI(summary) {
-            // 更新汇总卡片
+            // Update summary cards
             document.getElementById('summaryCards').innerHTML = generateSummaryCards(summary);
             
-            // 更新各个统计表格
-            document.getElementById('modelStats').innerHTML = '<h2>📊 模型使用统计</h2>' + generateModelStatsTable(summary);
-            document.getElementById('modeStats').innerHTML = '<h2>⚡ 模式使用统计</h2>' + generateModeStatsTable(summary);
-            document.getElementById('dailyStats').innerHTML = '<h2>📅 每日使用统计</h2>' + generateDailyStatsTable(summary);
+            // Update statistics tables
+            document.getElementById('modelStats').innerHTML = '<h2>📊 Model Usage Statistics</h2>' + generateModelStatsTable(summary);
+            document.getElementById('modeStats').innerHTML = '<h2>⚡ Mode Usage Statistics</h2>' + generateModeStatsTable(summary);
+            document.getElementById('dailyStats').innerHTML = '<h2>📅 Daily Usage Statistics</h2>' + generateDailyStatsTable(summary);
             
-            // 更新图表
+            // Update chart
             initDailyChart(summary);
         }
 
-        // 前端生成函数
+        // Frontend generation functions
         function generateSummaryCards(summary) {
             return \`
                 <div class="card">
-                    <h3>总使用量</h3>
+                    <h3>Total Usage</h3>
                     <div class="value">\${(summary.total_amount || 0).toFixed(2)}</div>
                 </div>
                 <div class="card">
-                    <h3>总费用</h3>
-                    <div class="value">$\${(summary.total_cost || 0).toFixed(2)}</div>
+                    <h3>Total Cost</h3>
+                    <div class="value">\${(summary.total_cost || 0).toFixed(2)}$</div>
                 </div>
                 <div class="card">
-                    <h3>会话数</h3>
+                    <h3>Total Sessions</h3>
                     <div class="value">\${summary.total_sessions}</div>
                 </div>
                 <div class="card">
-                    <h3>模型种类</h3>
+                    <h3>Model Types</h3>
                     <div class="value">\${Object.keys(summary.model_stats).length}</div>
                 </div>\`;
         }
@@ -561,7 +597,7 @@ export class UsageDashboardGenerator {
                         <td><strong>\${model}</strong></td>
                         <td>\${stats.count}</td>
                         <td>\${(stats.amount || 0).toFixed(2)}</td>
-                        <td>$\${(stats.cost || 0).toFixed(2)}</td>
+                        <td>\${(stats.cost || 0).toFixed(2)}$</td>
                         <td>\${stats.input_tokens.toLocaleString()}</td>
                         <td>\${stats.output_tokens.toLocaleString()}</td>
                         <td>\${stats.cache_read_tokens.toLocaleString()}</td>
@@ -573,14 +609,14 @@ export class UsageDashboardGenerator {
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>模型</th>
-                            <th>使用次数</th>
-                            <th>使用量</th>
-                            <th>费用</th>
-                            <th>输入Token</th>
-                            <th>输出Token</th>
-                            <th>缓存读取</th>
-                            <th>缓存写入</th>
+                            <th>Model</th>
+                            <th>Usage Count</th>
+                            <th>Usage</th>
+                            <th>Cost</th>
+                            <th>Input Tokens</th>
+                            <th>Output Tokens</th>
+                            <th>Cache Read</th>
+                            <th>Cache Write</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -600,7 +636,7 @@ export class UsageDashboardGenerator {
                         <td><span class="\${modeClass}">\${mode}</span></td>
                         <td>\${stats.count}</td>
                         <td>\${(stats.amount || 0).toFixed(2)}</td>
-                        <td>$\${(stats.cost || 0).toFixed(2)}</td>
+                        <td>\${(stats.cost || 0).toFixed(2)}$</td>
                         <td>\${percentage}%</td>
                     </tr>
                 \`;
@@ -610,11 +646,11 @@ export class UsageDashboardGenerator {
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>模式</th>
-                            <th>使用次数</th>
-                            <th>使用量</th>
-                            <th>费用</th>
-                            <th>占比</th>
+                            <th>Mode</th>
+                            <th>Usage Count</th>
+                            <th>Usage</th>
+                            <th>Cost</th>
+                            <th>Percentage</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -631,7 +667,7 @@ export class UsageDashboardGenerator {
                         <td>\${date}</td>
                         <td>\${stats.count}</td>
                         <td>\${(stats.amount || 0).toFixed(2)}</td>
-                        <td>$\${(stats.cost || 0).toFixed(2)}</td>
+                        <td>\${(stats.cost || 0).toFixed(2)}$</td>
                         <td>\${stats.models.join(', ')}</td>
                     </tr>
                 \`).join('');
@@ -640,11 +676,11 @@ export class UsageDashboardGenerator {
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>日期</th>
-                            <th>使用次数</th>
-                            <th>使用量</th>
-                            <th>费用</th>
-                            <th>使用模型</th>
+                            <th>Date</th>
+                            <th>Usage Count</th>
+                            <th>Usage</th>
+                            <th>Cost</th>
+                            <th>Models Used</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -653,7 +689,7 @@ export class UsageDashboardGenerator {
                 </table>\`;
         }
 
-        // 初始化
+        // Initialize
         initDailyChart(currentSummary);
         updateFilterInfo(document.getElementById('startDate').value, document.getElementById('endDate').value);
     </script>
@@ -664,19 +700,19 @@ export class UsageDashboardGenerator {
   private generateSummaryCards(summary: UsageSummary): string {
     return `
         <div class="card">
-            <h3>总使用量</h3>
+            <h3>Total Usage</h3>
             <div class="value">${(summary.total_amount || 0).toFixed(2)}</div>
         </div>
         <div class="card">
-            <h3>总费用</h3>
+            <h3>Total Cost</h3>
             <div class="value">$${(summary.total_cost || 0).toFixed(2)}</div>
         </div>
         <div class="card">
-            <h3>会话数</h3>
+            <h3>Total Sessions</h3>
             <div class="value">${summary.total_sessions}</div>
         </div>
         <div class="card">
-            <h3>模型种类</h3>
+            <h3>Model Types</h3>
             <div class="value">${Object.keys(summary.model_stats).length}</div>
         </div>`;
   }
@@ -686,14 +722,14 @@ export class UsageDashboardGenerator {
         <table class="table">
             <thead>
                 <tr>
-                    <th>模型</th>
-                    <th>使用次数</th>
-                    <th>使用量</th>
-                    <th>费用</th>
-                    <th>输入Token</th>
-                    <th>输出Token</th>
-                    <th>缓存读取</th>
-                    <th>缓存写入</th>
+                    <th>Model</th>
+                    <th>Usage Count</th>
+                    <th>Usage</th>
+                    <th>Cost</th>
+                    <th>Input Tokens</th>
+                    <th>Output Tokens</th>
+                    <th>Cache Read</th>
+                    <th>Cache Write</th>
                 </tr>
             </thead>
             <tbody>
@@ -720,11 +756,11 @@ export class UsageDashboardGenerator {
         <table class="table">
             <thead>
                 <tr>
-                    <th>模式</th>
-                    <th>使用次数</th>
-                    <th>使用量</th>
-                    <th>费用</th>
-                    <th>占比</th>
+                    <th>Mode</th>
+                    <th>Usage Count</th>
+                    <th>Usage</th>
+                    <th>Cost</th>
+                    <th>Percentage</th>
                 </tr>
             </thead>
             <tbody>
@@ -752,11 +788,11 @@ export class UsageDashboardGenerator {
         <table class="table">
             <thead>
                 <tr>
-                    <th>日期</th>
-                    <th>使用次数</th>
-                    <th>使用量</th>
-                    <th>费用</th>
-                    <th>使用模型</th>
+                    <th>Date</th>
+                    <th>Usage Count</th>
+                    <th>Usage</th>
+                    <th>Cost</th>
+                    <th>Models Used</th>
                 </tr>
             </thead>
             <tbody>
