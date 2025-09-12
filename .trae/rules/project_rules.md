@@ -1,2 +1,1 @@
-项目版本管理：修改代码时，如果当前是正式版本则修改成下一版本的SNAPSHOT版本
-每次更新完代码都要重新编译生成vsix包，通过命令安装扩展trae --install-extension xxx.vsix
+项目版本管理：修改代码时，如果当前是正式版本则修改成下一版本的SNAPSHOT版本，如果时SNAPSHOT版本则不需要更新版本

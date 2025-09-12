@@ -4,17 +4,14 @@ import axios from 'axios';
 import { 
   UsageDetailItem, 
   UsageDetailResponse, 
-  StoredUsageData, 
-  UsageSummary,
-  ModelStats,
-  ModeStats,
-  DailyStats
+  StoredUsageData
 } from './types';
 import { logWithTime, formatTimestamp } from './utils';
 import { ApiResponse, TokenResponse } from './extension';
 
 const DEFAULT_HOST = 'https://api-sg-central.trae.ai';
 const API_TIMEOUT = 3000;
+const USAGE_DATA_FILE = 'usage_data.json';
 
 export class UsageDetailCollector {
   private context: vscode.ExtensionContext;
@@ -54,21 +51,66 @@ export class UsageDetailCollector {
       return;
     }
 
-    const timeRange = await this.getSubscriptionTimeRange(authToken);
-    if (!timeRange) {
+    const subscriptionTimeRange = await this.getSubscriptionTimeRange(authToken);
+    if (!subscriptionTimeRange) {
       vscode.window.showErrorMessage('无法获取订阅信息');
       return;
     }
 
-    const { start_time, end_time } = timeRange;
+    // 加载现有数据
+    const existingData = await this.loadExistingData();
+    
+    // 计算收集时间范围
+    const { start_time, end_time } = this.calculateCollectionTimeRange(existingData, subscriptionTimeRange);
+    
+    logWithTime(`开始增量收集，时间范围: ${formatTimestamp(start_time)} - ${formatTimestamp(end_time)}`);
     
     await vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
       title: '正在收集使用量详情...',
       cancellable: true
     }, async (progress, token) => {
-      return this.collectAllPages(authToken, start_time, end_time, progress, token);
+      return this.collectAllPages(authToken, start_time, end_time, existingData, subscriptionTimeRange, progress, token);
     });
+  }
+
+  private async loadExistingData(): Promise<StoredUsageData> {
+    const dataPath = vscode.Uri.joinPath(this.context.globalStorageUri, USAGE_DATA_FILE);
+    
+    try {
+      const fileContent = await vscode.workspace.fs.readFile(dataPath);
+      const data = JSON.parse(fileContent.toString()) as StoredUsageData;
+      logWithTime(`加载现有数据成功，包含 ${Object.keys(data.usage_details).length} 条记录`);
+      return data;
+    } catch (error) {
+      logWithTime(`未找到现有数据文件，将创建新文件`);
+      return {
+        last_update_time: 0,
+        start_time: 0,
+        end_time: 0,
+        usage_details: {}
+      };
+    }
+  }
+
+  private calculateCollectionTimeRange(
+    existingData: StoredUsageData, 
+    subscriptionRange: { start_time: number; end_time: number }
+  ): { start_time: number; end_time: number } {
+    const now = Math.floor(Date.now() / 1000);
+    const end_time = Math.min(subscriptionRange.end_time, now);
+    
+    let start_time: number;
+    
+    if (existingData.last_update_time > 0) {
+      // 增量收集：从上次更新时间前1小时开始
+      start_time = existingData.last_update_time - 3600; // 减去1小时
+    } else {
+      // 首次收集：从订阅开始时间收集
+      start_time = subscriptionRange.start_time;
+    }
+    
+    return { start_time, end_time };
   }
 
   private async getSubscriptionTimeRange(authToken: string): Promise<{ start_time: number; end_time: number } | null> {
@@ -105,13 +147,16 @@ export class UsageDetailCollector {
     authToken: string, 
     start_time: number, 
     end_time: number, 
+    existingData: StoredUsageData,
+    subscriptionRange: { start_time: number; end_time: number },
     progress: vscode.Progress<{ message?: string; increment?: number }>,
     token: vscode.CancellationToken
   ): Promise<void> {
-    const allUsageDetails: UsageDetailItem[] = [];
     let pageNum = 1;
     const pageSize = 50;
     let totalRecords = 0;
+    let collectedCount = 0;
+    let updatedCount = 0;
 
     try {
       const firstPageResponse = await this.fetchUsageDetailsPage(authToken, start_time, end_time, pageNum, pageSize);
@@ -120,13 +165,17 @@ export class UsageDetailCollector {
       }
 
       totalRecords = firstPageResponse.total;
-      allUsageDetails.push(...firstPageResponse.user_usage_group_by_sessions);
-
       const totalPages = Math.ceil(totalRecords / pageSize);
       logWithTime(`开始收集使用量详情，总记录数: ${totalRecords}, 总页数: ${totalPages}`);
 
-      progress.report({ message: `收集第 1/${totalPages} 页 (${allUsageDetails.length}/${totalRecords})`, increment: 0 });
+      // 处理第一页数据
+      const { collected, updated } = this.processPageData(firstPageResponse.user_usage_group_by_sessions, existingData);
+      collectedCount += collected;
+      updatedCount += updated;
 
+      progress.report({ message: `收集第 1/${totalPages} 页 (新增: ${collectedCount}, 更新: ${updatedCount})`, increment: 0 });
+
+      // 处理剩余页面
       for (pageNum = 2; pageNum <= totalPages; pageNum++) {
         if (token.isCancellationRequested) {
           throw new Error('用户取消了收集操作');
@@ -136,32 +185,29 @@ export class UsageDetailCollector {
 
         const pageResponse = await this.fetchUsageDetailsPage(authToken, start_time, end_time, pageNum, pageSize);
         if (pageResponse) {
-          allUsageDetails.push(...pageResponse.user_usage_group_by_sessions);
+          const { collected, updated } = this.processPageData(pageResponse.user_usage_group_by_sessions, existingData);
+          collectedCount += collected;
+          updatedCount += updated;
+          
           progress.report({ 
-            message: `收集第 ${pageNum}/${totalPages} 页 (${allUsageDetails.length}/${totalRecords})`, 
+            message: `收集第 ${pageNum}/${totalPages} 页 (新增: ${collectedCount}, 更新: ${updatedCount})`, 
             increment: 100 / totalPages 
           });
-          logWithTime(`已收集第 ${pageNum} 页，当前总数: ${allUsageDetails.length}`);
+          logWithTime(`已收集第 ${pageNum} 页，新增: ${collected}, 更新: ${updated}`);
         }
       }
 
-      const summary = this.generateSummary(allUsageDetails);
-
-      const storedData: StoredUsageData = {
-        timestamp: Date.now(),
-        start_time,
-        end_time,
-        total_records: totalRecords,
-        usage_details: allUsageDetails,
-        summary
-      };
-
-      await this.saveUsageData(storedData);
+      // 更新数据并保存
+      existingData.last_update_time = Math.floor(Date.now() / 1000);
+      existingData.start_time = subscriptionRange.start_time;
+      existingData.end_time = subscriptionRange.end_time;
+      
+      await this.saveUsageData(existingData);
       
       progress.report({ message: '收集完成!', increment: 100 });
       
       const choice = await vscode.window.showInformationMessage(
-        `收集完成！共 ${totalRecords} 条记录，总使用量: ${(summary.total_amount || 0).toFixed(2)}，总费用: $${(summary.total_cost || 0).toFixed(2)}`,
+        `收集完成！新增 ${collectedCount} 条记录，更新 ${updatedCount} 条记录，总记录数: ${Object.keys(existingData.usage_details).length}`,
         '查看仪表板'
       );
 
@@ -173,6 +219,27 @@ export class UsageDetailCollector {
       logWithTime(`收集过程中出错: ${error}`);
       throw error;
     }
+  }
+
+  private processPageData(items: UsageDetailItem[], existingData: StoredUsageData): { collected: number; updated: number } {
+    let collected = 0;
+    let updated = 0;
+
+    items.forEach(item => {
+      const sessionId = item.session_id;
+      if (existingData.usage_details[sessionId]) {
+        // 检查是否需要更新（比较usage_time）
+        if (existingData.usage_details[sessionId].usage_time !== item.usage_time) {
+          existingData.usage_details[sessionId] = item;
+          updated++;
+        }
+      } else {
+        existingData.usage_details[sessionId] = item;
+        collected++;
+      }
+    });
+
+    return { collected, updated };
   }
 
   private async fetchUsageDetailsPage(
@@ -197,11 +264,7 @@ export class UsageDetailCollector {
         'Content-Type': 'application/json'
       };
 
-      // 打印请求信息
-      logWithTime(`=== API请求调试信息 (第${pageNum}页) ===`);
-      logWithTime(`请求URL: ${url}`);
-      logWithTime(`请求体: ${JSON.stringify(requestBody, null, 2)}`);
-      logWithTime(`请求头: ${JSON.stringify(headers, null, 2)}`);
+      logWithTime(`请求第${pageNum}页数据: ${url}`);
 
       const response = await axios.post<UsageDetailResponse>(
         url,
@@ -212,128 +275,23 @@ export class UsageDetailCollector {
         }
       );
 
-      // 打印响应信息
-      logWithTime(`响应状态: ${response.status}`);
-      logWithTime(`响应头: ${JSON.stringify(response.headers, null, 2)}`);
-      logWithTime(`响应数据: ${JSON.stringify(response.data, null, 2)}`);
-      logWithTime(`=== API请求调试信息结束 ===`);
-
       return response.data;
     } catch (error: any) {
-      // 打印详细错误信息
-      logWithTime(`=== API请求错误信息 (第${pageNum}页) ===`);
-      logWithTime(`错误类型: ${error.constructor.name}`);
-      logWithTime(`错误消息: ${error.message}`);
-      
-      if (error.response) {
-        logWithTime(`响应状态码: ${error.response.status}`);
-        logWithTime(`响应状态文本: ${error.response.statusText}`);
-        logWithTime(`响应头: ${JSON.stringify(error.response.headers, null, 2)}`);
-        logWithTime(`响应数据: ${JSON.stringify(error.response.data, null, 2)}`);
-      } else if (error.request) {
-        logWithTime(`请求已发送但未收到响应`);
-        logWithTime(`请求信息: ${JSON.stringify(error.request, null, 2)}`);
-      } else {
-        logWithTime(`请求配置错误: ${error.message}`);
-      }
-      
-      if (error.config) {
-        logWithTime(`请求配置: ${JSON.stringify({
-          url: error.config.url,
-          method: error.config.method,
-          headers: error.config.headers,
-          data: error.config.data,
-          timeout: error.config.timeout
-        }, null, 2)}`);
-      }
-      
-      logWithTime(`=== API请求错误信息结束 ===`);
       logWithTime(`获取第 ${pageNum} 页使用量详情失败: ${error}`);
       return null;
     }
   }
 
-  private generateSummary(usageDetails: UsageDetailItem[]): UsageSummary {
-    const summary: UsageSummary = {
-      total_amount: 0,
-      total_cost: 0,
-      total_sessions: usageDetails.length,
-      model_stats: {},
-      mode_stats: {},
-      daily_stats: {}
-    };
-
-    usageDetails.forEach(item => {
-      summary.total_amount += item.amount_float;
-      summary.total_cost += item.cost_money_float;
-
-      // 模型统计
-      const modelName = item.model_name;
-      if (!summary.model_stats[modelName]) {
-        summary.model_stats[modelName] = {
-          count: 0,
-          amount: 0,
-          cost: 0,
-          input_tokens: 0,
-          output_tokens: 0,
-          cache_read_tokens: 0,
-          cache_write_tokens: 0
-        };
-      }
-      const modelStats = summary.model_stats[modelName];
-      modelStats.count++;
-      modelStats.amount += item.amount_float;
-      modelStats.cost += item.cost_money_float;
-      modelStats.input_tokens += item.extra_info.input_token;
-      modelStats.output_tokens += item.extra_info.output_token;
-      modelStats.cache_read_tokens += item.extra_info.cache_read_token;
-      modelStats.cache_write_tokens += item.extra_info.cache_write_token;
-
-      // 模式统计
-      const mode = item.mode || 'Normal';
-      if (!summary.mode_stats[mode]) {
-        summary.mode_stats[mode] = { count: 0, amount: 0, cost: 0 };
-      }
-      summary.mode_stats[mode].count++;
-      summary.mode_stats[mode].amount += item.amount_float;
-      summary.mode_stats[mode].cost += item.cost_money_float;
-
-      // 日期统计
-      const date = new Date(item.usage_time * 1000).toISOString().split('T')[0];
-      if (!summary.daily_stats[date]) {
-        summary.daily_stats[date] = { count: 0, amount: 0, cost: 0, models: new Set() };
-      }
-      summary.daily_stats[date].count++;
-      summary.daily_stats[date].amount += item.amount_float;
-      summary.daily_stats[date].cost += item.cost_money_float;
-      summary.daily_stats[date].models.add(modelName);
-    });
-
-    // 转换 Set 为数组以便序列化
-    Object.keys(summary.daily_stats).forEach(date => {
-      (summary.daily_stats[date] as any).models = Array.from(summary.daily_stats[date].models);
-    });
-
-    return summary;
-  }
-
   private async saveUsageData(data: StoredUsageData): Promise<void> {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
-    const fileName = `usage_detail_${timestamp}_${data.timestamp}.json`;
-    
-    // 使用扩展的存储目录
-    const targetPath = vscode.Uri.joinPath(this.context.globalStorageUri, fileName);
+    const dataPath = vscode.Uri.joinPath(this.context.globalStorageUri, USAGE_DATA_FILE);
 
     try {
       // 确保存储目录存在
       await vscode.workspace.fs.createDirectory(this.context.globalStorageUri);
       
       const jsonData = JSON.stringify(data, null, 2);
-      await vscode.workspace.fs.writeFile(targetPath, Buffer.from(jsonData, 'utf8'));
-      logWithTime(`使用量数据已保存到: ${targetPath.fsPath}`);
-      
-      const config = vscode.workspace.getConfiguration('traeUsage');
-      await config.update('lastUsageDataFile', targetPath.fsPath, vscode.ConfigurationTarget.Global);
+      await vscode.workspace.fs.writeFile(dataPath, Buffer.from(jsonData, 'utf8'));
+      logWithTime(`使用量数据已保存到: ${dataPath.fsPath}`);
       
     } catch (error) {
       logWithTime(`保存使用量数据失败: ${error}`);

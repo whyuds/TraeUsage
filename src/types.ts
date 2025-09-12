@@ -22,6 +22,15 @@ export interface UsageDetailResponse {
   user_usage_group_by_sessions: UsageDetailItem[];
 }
 
+// 存储的数据结构
+export interface StoredUsageData {
+  last_update_time: number; // 最后更新时间
+  start_time: number;       // 订阅开始时间
+  end_time: number;         // 订阅结束时间
+  usage_details: { [session_id: string]: UsageDetailItem }; // 按session_id存储
+}
+
+// 统计汇总数据结构
 export interface ModelStats {
   count: number;
   amount: number;
@@ -42,7 +51,7 @@ export interface DailyStats {
   count: number;
   amount: number;
   cost: number;
-  models: Set<string>;
+  models: string[];
 }
 
 export interface UsageSummary {
@@ -52,13 +61,4 @@ export interface UsageSummary {
   model_stats: { [key: string]: ModelStats };
   mode_stats: { [key: string]: ModeStats };
   daily_stats: { [key: string]: DailyStats };
-}
-
-export interface StoredUsageData {
-  timestamp: number;
-  start_time: number;
-  end_time: number;
-  total_records: number;
-  usage_details: UsageDetailItem[];
-  summary: UsageSummary;
 }
