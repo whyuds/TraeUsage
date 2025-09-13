@@ -3,6 +3,7 @@
   "commands.updateSession.title": "TraeUsage: Set Session ID",
   "commands.collectUsageDetails.title": "TraeUsage: Collect Usage Details",
   "commands.showUsageDashboard.title": "TraeUsage: Show Usage Dashboard",
+  "commands.showOutput.title": "TraeUsage: Show Output",
   "views.traeUsageView.name": "Trae Usage",
   "configuration.title": "Trae Usage",
   "configuration.sessionId.description": "Trae AI session ID (X-Cloudide-Session cookie value)",

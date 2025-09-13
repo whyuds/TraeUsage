@@ -3,6 +3,7 @@
   "commands.updateSession.title": "TraeUsage: 设置Session ID",
   "commands.collectUsageDetails.title": "TraeUsage: 收集使用量详情",
   "commands.showUsageDashboard.title": "TraeUsage: 显示使用量仪表板",
+  "commands.showOutput.title": "TraeUsage: 显示输出面板",
   "views.traeUsageView.name": "Trae Usage",
   "configuration.title": "Trae Usage",
   "configuration.sessionId.description": "Trae AI session ID (X-Cloudide-Session cookie值)",

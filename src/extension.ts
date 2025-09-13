@@ -6,7 +6,7 @@ import WebSocket from 'ws';
 import { initializeI18n, t } from './i18n';
 import { UsageDetailCollector } from './usageCollector';
 import { UsageDashboardGenerator } from './dashboardGenerator';
-import { disposeOutputChannel } from './utils';
+import { disposeOutputChannel, getOutputChannel, logWithTime, formatTimestamp } from './utils';
 
 // ==================== 类型定义 ====================
 interface UsageData {
@@ -93,40 +93,9 @@ const RETRY_DELAY = 1000;
 const TOKEN_ERROR_CODE = '20310';
 
 // ==================== 工具函数 ====================
-let outputChannel: vscode.OutputChannel;
 
-function getOutputChannel(): vscode.OutputChannel {
-  if (!outputChannel) {
-    outputChannel = vscode.window.createOutputChannel('Trae Usage');
-  }
-  return outputChannel;
-}
 
-function logWithTime(message: string): void {
-  const timestamp = new Date().toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  });
-  const logMessage = `[${timestamp}] ${message}`;
-  console.log(logMessage);
-  getOutputChannel().appendLine(logMessage);
-}
 
-function formatTimestamp(timestamp: number): string {
-  return new Date(timestamp * 1000).toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  }).replace(/\//g, '/');
-}
 
 // ==================== 浏览器检测 ====================
 async function detectDefaultBrowser(): Promise<BrowserType> {
@@ -498,6 +467,11 @@ class TraeUsageProvider {
 
   public async showUsageDashboard(): Promise<void> {
     await this.dashboardGenerator.showDashboard();
+  }
+
+  public showOutput(): void {
+    const outputChannel = getOutputChannel();
+    outputChannel.show();
   }
 
   private createStatusBarItem(): vscode.StatusBarItem {
@@ -976,9 +950,6 @@ class TraeUsageProvider {
       this.statusBarItem.dispose();
     }
     this.webSocketManager.dispose();
-    if (outputChannel) {
-      outputChannel.dispose();
-    }
     disposeOutputChannel();
   }
 }
@@ -1064,6 +1035,9 @@ function registerCommands(context: vscode.ExtensionContext, provider: TraeUsageP
     }),
     vscode.commands.registerCommand('traeUsage.showUsageDashboard', () => {
       provider.showUsageDashboard();
+    }),
+    vscode.commands.registerCommand('traeUsage.showOutput', () => {
+      provider.showOutput();
     })
   ];
   

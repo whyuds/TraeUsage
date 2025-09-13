@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 let outputChannel: vscode.OutputChannel;
 
-function getOutputChannel(): vscode.OutputChannel {
+export function getOutputChannel(): vscode.OutputChannel {
   if (!outputChannel) {
     outputChannel = vscode.window.createOutputChannel('Trae Usage');
   }
