@@ -18,35 +18,22 @@ const RETRY_DELAY = 1000; // 重试延迟（毫秒）
 
 export class UsageDetailCollector {
   private context: vscode.ExtensionContext;
-  private isCollecting = false;
 
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
   }
 
-  public collectUsageDetails(): void {
-    if (this.isCollecting) {
-      logWithTime('收集操作已在进行中，跳过本次请求');
-      vscode.window.showWarningMessage(t('usageCollector.alreadyCollecting'));
-      return;
-    }
-
+  public async collectUsageDetails(): Promise<void> {
     logWithTime('开始收集使用量详情');
-    this.isCollecting = true;
     
-    // 在后台异步执行收集操作
-    this.startCollection()
-      .then(() => {
-        logWithTime('收集使用量详情完成');
-      })
-      .catch((error) => {
-        logWithTime(`收集使用量详情失败: ${error}`);
-        vscode.window.showErrorMessage(t('usageCollector.collectionError', { error: error?.toString() || 'Unknown error' }));
-      })
-      .finally(() => {
-        this.isCollecting = false;
-        logWithTime('重置收集状态为 false');
-      });
+    try {
+      await this.startCollection();
+      logWithTime('收集使用量详情完成');
+    } catch (error) {
+      logWithTime(`收集使用量详情失败: ${error}`);
+      vscode.window.showErrorMessage(t('usageCollector.collectionError', { error: error?.toString() || 'Unknown error' }));
+      throw error;
+    }
   }
 
   private async startCollection(): Promise<void> {
@@ -76,7 +63,7 @@ export class UsageDetailCollector {
     
     logWithTime(`开始增量收集，时间范围: ${formatTimestamp(start_time)} - ${formatTimestamp(end_time)}`);
     
-    // 直接调用收集函数，不显示进度通知
+    // 串行同步收集所有页面数据
     await this.collectAllPages(authToken, start_time, end_time, existingData, subscriptionTimeRange);
   }
 
@@ -219,8 +206,9 @@ export class UsageDetailCollector {
       // 添加第一页数据
       allPagesData.push(...firstPageResponse.user_usage_group_by_sessions);
 
-      // 获取剩余页面数据
+      // 串行获取剩余页面数据
       for (pageNum = 2; pageNum <= totalPages; pageNum++) {
+        // 添加延迟避免请求过于频繁
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         const pageResponse = await this.fetchUsageDetailsPage(authToken, start_time, end_time, pageNum, pageSize);
