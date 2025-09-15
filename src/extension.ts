@@ -691,6 +691,7 @@ class TraeUsageProvider {
 
       const authToken = await this.getTokenFromSession(sessionId);
       if (!authToken) {
+        this.handleNoToken();
         return;
       }
 
@@ -773,10 +774,12 @@ class TraeUsageProvider {
   }
 
   private handleNoToken(): void {
+    this.resetRefreshState();
+    this.updateStatusBar();
+    
     if (this.isManualRefresh) {
-      this.showTokenErrorMessage();
-      this.resetRefreshState();
-      this.updateStatusBar();
+      // 手动刷新时显示更新Session对话框
+      showUpdateSessionDialog();
     }
     this.isManualRefresh = false;
   }
@@ -799,6 +802,9 @@ class TraeUsageProvider {
       this.scheduleRetry(retryCount);
     } else {
       logWithTime('API调用失败，已达到最大重试次数，停止重试');
+      // 达到最大重试次数后，恢复状态栏状态
+      this.resetRefreshState();
+      this.updateStatusBar();
     }
   }
 

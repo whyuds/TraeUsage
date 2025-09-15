@@ -41,7 +41,6 @@ export class UsageDetailCollector {
   private async startCollection(): Promise<void> {
     const sessionId = this.getSessionId();
     if (!sessionId) {
-      vscode.window.showWarningMessage(t('usageCollector.pleaseSetSessionId'));
       return;
     }
 
