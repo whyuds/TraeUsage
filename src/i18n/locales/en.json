@@ -114,7 +114,6 @@
     "collectionError": "Error during collection: {error}",
     "requestPageData": "Requesting page {page} data: {url}",
     "fetchPageFailed": "Failed to fetch page {page} usage details: {error}",
-    "dataSaved": "Usage data saved to: {path}",
     "saveDataFailed": "Failed to save usage data: {error}",
     "saveDataError": "Failed to save data: {error}",
     "getTokenFailed": "Failed to get token: {error}",

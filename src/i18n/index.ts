@@ -108,7 +108,6 @@ export interface Translations {
     collectionError: string;
     requestPageData: string;
     fetchPageFailed: string;
-    dataSaved: string;
     saveDataFailed: string;
     saveDataError: string;
     getTokenFailed: string;

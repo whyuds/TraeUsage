@@ -114,7 +114,6 @@
     "collectionError": "收集过程中出错: {error}",
     "requestPageData": "请求第{page}页数据: {url}",
     "fetchPageFailed": "获取第 {page} 页使用量详情失败: {error}",
-    "dataSaved": "使用量数据已保存到: {path}",
     "saveDataFailed": "保存使用量数据失败: {error}",
     "saveDataError": "保存数据失败: {error}",
     "getTokenFailed": "获取Token失败: {error}",

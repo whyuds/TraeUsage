@@ -320,7 +320,6 @@ export class UsageDetailCollector {
       
       const jsonData = JSON.stringify(data, null, 2);
       await vscode.workspace.fs.writeFile(dataPath, Buffer.from(jsonData, 'utf8'));
-      logWithTime(t('usageCollector.dataSaved', { path: dataPath.fsPath }));
       
     } catch (error) {
       logWithTime(t('usageCollector.saveDataFailed', { error: String(error) }));
