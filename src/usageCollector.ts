@@ -9,6 +9,7 @@ import {
 import { logWithTime, formatTimestamp } from './utils';
 import { ApiResponse, TokenResponse } from './extension';
 import { t } from './i18n';
+import { getApiService } from './apiService';
 
 const DEFAULT_HOST = 'https://api-sg-central.trae.ai';
 const API_TIMEOUT = 3000;
@@ -18,6 +19,7 @@ const RETRY_DELAY = 1000; // 重试延迟（毫秒）
 
 export class UsageDetailCollector {
   private context: vscode.ExtensionContext;
+  private apiService = getApiService();
 
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
@@ -45,7 +47,6 @@ export class UsageDetailCollector {
 
     const authToken = await this.getAuthToken(sessionId);
     if (!authToken) {
-      vscode.window.showErrorMessage(t('usageCollector.cannotGetToken'));
       return;
     }
 
@@ -340,24 +341,7 @@ export class UsageDetailCollector {
 
   private async getAuthToken(sessionId: string): Promise<string | null> {
     try {
-      const result = await this.apiRequestWithRetry(async () => {
-        const currentHost = this.getHost();
-        const response = await axios.post<TokenResponse>(
-          `${currentHost}/cloudide/api/v3/common/GetUserToken`,
-          {},
-          {
-            headers: {
-              'Cookie': `X-Cloudide-Session=${sessionId}`,
-              'Host': new URL(currentHost).hostname,
-              'Content-Type': 'application/json'
-            },
-            timeout: API_TIMEOUT
-          }
-        );
-
-        return response.data.Result.Token;
-      }, '获取认证Token');
-
+      const result = await this.apiService.getTokenWithRetry(sessionId, MAX_RETRIES);
       return result;
     } catch (error) {
       logWithTime(t('usageCollector.getTokenFailed', { error: String(error) }));

@@ -7,6 +7,7 @@ import { initializeI18n, t } from './i18n';
 import { UsageDetailCollector } from './usageCollector';
 import { UsageDashboardGenerator } from './dashboardGenerator';
 import { disposeOutputChannel, getOutputChannel, logWithTime, formatTimestamp } from './utils';
+import { getApiService } from './apiService';
 
 // ==================== 类型定义 ====================
 interface UsageData {
@@ -88,9 +89,8 @@ const DEFAULT_HOST = 'https://api-sg-central.trae.ai';
 const FALLBACK_HOST = 'https://api-us-east.trae.ai';
 const DOUBLE_CLICK_DELAY = 300;
 const API_TIMEOUT = 3000;
-const MAX_RETRY_COUNT = 5;
+const MAX_RETRY_COUNT = 3;
 const RETRY_DELAY = 1000;
-const TOKEN_ERROR_CODE = '20310';
 
 // ==================== 工具函数 ====================
 
@@ -438,8 +438,7 @@ class TraeUsageProvider {
   private retryTimer: NodeJS.Timeout | null = null;
   private clickTimer: NodeJS.Timeout | null = null;
   private statusBarItem: vscode.StatusBarItem;
-  private cachedToken: string | null = null;
-  private cachedSessionId: string | null = null;
+  private apiService = getApiService();
   private clickCount = 0;
   private isRefreshing = false;
   private isManualRefresh = false;
@@ -541,8 +540,7 @@ class TraeUsageProvider {
   }
 
   private clearCache(): void {
-    this.cachedToken = null;
-    this.cachedSessionId = null;
+    this.apiService.clearCache();
   }
 
   // ==================== 状态栏更新 ====================
@@ -678,59 +676,9 @@ class TraeUsageProvider {
     return sections.join('\n');
   }
 
-  // 已移除buildPackSection方法，因为精简后的tooltip不再需要此方法
-
   // ==================== API 调用 ====================
   private async getTokenFromSession(sessionId: string, retryCount = 0): Promise<string | null> {
-    if (this.cachedToken && this.cachedSessionId === sessionId) {
-      return this.cachedToken;
-    }
-
-    const currentHost = this.getHost();
-    
-    try {
-      const response = await axios.post<TokenResponse>(
-        `${currentHost}/cloudide/api/v3/common/GetUserToken`,
-        {},
-        {
-          headers: {
-            'Cookie': `X-Cloudide-Session=${sessionId}`,
-            'Host': new URL(currentHost).hostname,
-            'Content-Type': 'application/json'
-          },
-          timeout: API_TIMEOUT
-        }
-      );
-
-      logWithTime('更新Token');
-      this.cachedToken = response.data.Result.Token;
-      this.cachedSessionId = sessionId;
-      return this.cachedToken;
-    } catch (error) {
-      return this.handleTokenError(error, sessionId, retryCount, currentHost);
-    }
-  }
-
-  private async handleTokenError(error: any, sessionId: string, retryCount: number, currentHost: string): Promise<string | null> {
-    logWithTime(`获取Token失败 (尝试 ${retryCount + 1}/${MAX_RETRY_COUNT}): ${error}`);
-    
-    if (this.isTokenError(error) && currentHost === DEFAULT_HOST) {
-      logWithTime(`检测到错误代码${TOKEN_ERROR_CODE}，尝试切换到备用主机`);
-      await this.setHost(FALLBACK_HOST);
-      return this.getTokenFromSession(sessionId, 0);
-    }
-    
-    if (this.isRetryableError(error) && retryCount < MAX_RETRY_COUNT) {
-      logWithTime(`Token获取失败，将在1秒后进行第${retryCount + 1}次重试`);
-      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-      return this.getTokenFromSession(sessionId, retryCount + 1);
-    }
-    
-    return null;
-  }
-
-  private isTokenError(error: any): boolean {
-    return error?.response?.data?.ResponseMetadata?.Error?.Code === TOKEN_ERROR_CODE;
+    return this.apiService.getTokenFromSession(sessionId, retryCount);
   }
 
   async fetchUsageData(retryCount = 0): Promise<void> {
@@ -743,7 +691,6 @@ class TraeUsageProvider {
 
       const authToken = await this.getTokenFromSession(sessionId);
       if (!authToken) {
-        this.handleNoToken();
         return;
       }
 
@@ -838,7 +785,7 @@ class TraeUsageProvider {
     logWithTime(`获取使用量数据失败 (尝试 ${retryCount + 1}/${MAX_RETRY_COUNT}): ${error}`);
     
     if (this.isManualRefresh) {
-      if (this.isRetryableError(error)) {
+      if (this.apiService.isRetryableError(error)) {
         vscode.window.showErrorMessage(t('messages.networkUnstable'));
       } else {
         this.showFetchErrorMessage(error);
@@ -862,14 +809,7 @@ class TraeUsageProvider {
     }, RETRY_DELAY);
   }
 
-  private isRetryableError(error: any): boolean {
-    return error && (
-      error.code === 'ECONNABORTED' || 
-      error.message?.includes('timeout') ||
-      error.code === 'ENOTFOUND' ||
-      error.code === 'ECONNRESET'
-    );
-  }
+
 
   // ==================== 消息显示 ====================
   private showSetSessionMessage(): void {
