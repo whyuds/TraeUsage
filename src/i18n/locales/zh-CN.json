@@ -84,9 +84,7 @@
   "configuration": {
     "title": "Trae Usage",
     "sessionIdDescription": "Trae session ID (X-Cloudide-Session cookie value)",
-    "refreshIntervalDescription": "Refresh interval in minutes",
-    "websocketUrlDescription": "WebSocket服务器地址 (例如: ws://localhost:8080/ws)",
-    "enableWebsocketDescription": "启用WebSocket实时数据投递"
+    "refreshIntervalDescription": "Refresh interval in minutes"
   },
   
   "serviceTypes": {

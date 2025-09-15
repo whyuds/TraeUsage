@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import * as os from 'os';
 import * as cp from 'child_process';
 import axios from 'axios';
-import WebSocket from 'ws';
 import { initializeI18n, t } from './i18n';
 import { UsageDetailCollector } from './usageCollector';
 import { UsageDashboardGenerator } from './dashboardGenerator';
@@ -69,21 +68,6 @@ export interface TokenResponse {
 
 type BrowserType = 'chrome' | 'edge' | 'unknown';
 
-// ==================== WebSocket类型定义 ====================
-interface WebSocketHeartbeatMessage {
-  type: 'heartbeat';
-  timestamp: number;
-  clientId: string;
-  ip: string;
-  machineId: string;
-  premium_model_fast_request_limit: number;
-  premium_model_fast_request_usage: number;
-  user_id: string;
-  start_time: number;
-  end_time: number;
-  group_id?: string;
-}
-
 // ==================== 常量定义 ====================
 const DEFAULT_HOST = 'https://api-sg-central.trae.ai';
 const FALLBACK_HOST = 'https://api-us-east.trae.ai';
@@ -91,11 +75,6 @@ const DOUBLE_CLICK_DELAY = 300;
 const API_TIMEOUT = 3000;
 const MAX_RETRY_COUNT = 3;
 const RETRY_DELAY = 1000;
-
-// ==================== 工具函数 ====================
-
-
-
 
 // ==================== 浏览器检测 ====================
 async function detectDefaultBrowser(): Promise<BrowserType> {
@@ -142,293 +121,6 @@ function parseBrowserOutput(output: string): BrowserType {
   return 'unknown';
 }
 
-// ==================== WebSocket管理器 ====================
-class WebSocketManager {
-  private ws: WebSocket | null = null;
-  private isConnected = false;
-  private hasConnectionError = false;
-  private heartbeatTimer: NodeJS.Timeout | null = null;
-  private readonly heartbeatInterval = 30000;
-  private clientId: string;
-  private url: string | null = null;
-  private enabled = false;
-  private cachedHeartbeatData: WebSocketHeartbeatMessage | null = null;
-  private onStatusChangeCallback: (() => void) | null = null;
-
-  constructor(private context: vscode.ExtensionContext) {
-    this.clientId = this.generateClientId();
-  }
-
-  public setStatusChangeCallback(callback: () => void): void {
-    this.onStatusChangeCallback = callback;
-  }
-
-  private notifyStatusChange(): void {
-    if (this.onStatusChangeCallback) {
-      this.onStatusChangeCallback();
-    }
-  }
-
-  private generateClientId(): string {
-    const machineId = vscode.env.machineId;
-    const timestamp = Date.now();
-    return `vscode-${machineId}-${timestamp}`;
-  }
-
-  public updateConfig(): void {
-    const config = vscode.workspace.getConfiguration('traeUsage');
-    const newUrl = config.get<string>('websocketUrl', '');
-    const newEnabled = config.get<boolean>('enableWebsocket', false);
-
-    this.url = newUrl;
-    this.enabled = newEnabled;
-
-    // 如果禁用了WebSocket，断开连接并停止心跳
-    if (!this.enabled) {
-      this.disconnect();
-      this.stopHeartbeat();
-    } else if (this.enabled && this.url) {
-      // 如果启用了WebSocket，开始心跳定时器
-      this.startHeartbeat();
-    }
-  }
-
-  private async connectIfNeeded(): Promise<boolean> {
-    if (!this.enabled || !this.url) {
-      return false;
-    }
-
-    if (this.isConnected && this.ws) {
-      return true;
-    }
-
-    return this.connect();
-  }
-
-  private async connect(): Promise<boolean> {
-    const correctedUrl = this.validateAndCorrectUrl(this.url!);
-    if (!correctedUrl) {
-      logWithTime(`WebSocket URL 格式无效: ${this.url}`);
-      return false;
-    }
-
-    // 清理旧连接
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-      this.isConnected = false;
-    }
-
-    try {
-      logWithTime(`尝试连接WebSocket: ${correctedUrl}`);
-      this.ws = new WebSocket(correctedUrl);
-
-      return new Promise<boolean>((resolve) => {
-        const connectionTimeout = setTimeout(() => {
-          if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
-            logWithTime('WebSocket连接超时');
-            this.ws.terminate();
-            resolve(false);
-          }
-        }, 10000);
-
-        this.ws!.on('open', () => {
-          clearTimeout(connectionTimeout);
-          this.onOpen();
-          resolve(true);
-        });
-
-        this.ws!.on('close', (code: number | undefined, reason: Buffer | undefined) => {
-          clearTimeout(connectionTimeout);
-          this.onClose(code, reason);
-          resolve(false);
-        });
-
-        this.ws!.on('error', (error: Error) => {
-          clearTimeout(connectionTimeout);
-          this.onError(error);
-          resolve(false);
-        });
-      });
-
-    } catch (error) {
-      logWithTime(`WebSocket连接异常: ${error}`);
-      return false;
-    }
-  }
-
-  private validateAndCorrectUrl(url: string): string | null {
-    try {
-      if (url.includes('0.0.0.0')) {
-        const correctedUrl = url.replace('0.0.0.0', 'localhost');
-        logWithTime(`URL已修正: ${url} -> ${correctedUrl}`);
-        return correctedUrl;
-      }
-
-      const parsedUrl = new URL(url);
-      if (parsedUrl.protocol !== 'ws:' && parsedUrl.protocol !== 'wss:') {
-        logWithTime(`不支持的协议: ${parsedUrl.protocol}`);
-        return null;
-      }
-
-      return url;
-    } catch (error) {
-      logWithTime(`URL解析失败: ${error}`);
-      return null;
-    }
-  }
-
-  private onOpen(): void {
-    this.isConnected = true;
-    this.hasConnectionError = false;
-    logWithTime(`WebSocket已连接: ${this.url}`);
-    this.notifyStatusChange();
-  }
-
-  private onClose(code?: number, reason?: Buffer): void {
-    this.isConnected = false;
-    
-    const closeMessage = reason ? reason.toString() : '';
-    logWithTime(`WebSocket连接已关闭 (代码: ${code}, 原因: ${closeMessage})`);
-    
-    // 如果不是正常关闭，标记为连接错误
-    if (code !== 1000) {
-      this.hasConnectionError = true;
-    }
-    
-    this.notifyStatusChange();
-  }
-
-  private onError(error: Error): void {
-    const errorMessage = error.message;
-    logWithTime(`WebSocket错误: ${errorMessage}`);
-    
-    this.hasConnectionError = true;
-    this.isConnected = false;
-    
-    this.notifyStatusChange();
-  }
-
-  private startHeartbeat(): void {
-    this.stopHeartbeat();
-    
-    // 立即尝试发送一次心跳
-    this.sendHeartbeat();
-    
-    // 启动定时器
-    this.heartbeatTimer = setInterval(() => {
-      this.sendHeartbeat();
-    }, this.heartbeatInterval);
-  }
-
-  private stopHeartbeat(): void {
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = null;
-    }
-  }
-
-  private async sendHeartbeat(): Promise<void> {
-    if (!this.enabled || !this.cachedHeartbeatData) {
-      return;
-    }
-
-    // 尝试连接（如果需要）
-    const connected = await this.connectIfNeeded();
-    if (!connected) {
-      logWithTime('WebSocket连接失败，跳过心跳发送');
-      return;
-    }
-
-    const heartbeatMessage: WebSocketHeartbeatMessage = {
-      ...this.cachedHeartbeatData,
-      timestamp: Date.now()
-    };
-
-    this.sendMessage(heartbeatMessage);
-  }
-
-  private async getClientIP(): Promise<string> {
-    try {
-      const response = await axios.get('https://api.ipify.org?format=json', { timeout: 3000 });
-      return response.data.ip;
-    } catch (error) {
-      return 'unknown';
-    }
-  }
-
-  public async updateHeartbeatData(usageData: ApiResponse): Promise<void> {
-    if (!usageData.user_entitlement_pack_list || usageData.user_entitlement_pack_list.length === 0) {
-      return;
-    }
-
-    // 获取第一条订阅数据
-    const firstPack = usageData.user_entitlement_pack_list[0];
-    const ip = await this.getClientIP();
-    const config = vscode.workspace.getConfiguration('traeUsage');
-    const groupId = config.get<string>('websocketGroupId');
-
-    this.cachedHeartbeatData = {
-      type: 'heartbeat',
-      timestamp: Date.now(),
-      clientId: this.clientId,
-      ip,
-      machineId: vscode.env.machineId,
-      premium_model_fast_request_limit: firstPack.entitlement_base_info.quota.premium_model_fast_request_limit,
-      premium_model_fast_request_usage: firstPack.usage.premium_model_fast_request_usage,
-      user_id: firstPack.entitlement_base_info.user_id,
-      start_time: firstPack.entitlement_base_info.start_time,
-      end_time: firstPack.entitlement_base_info.end_time
-    };
-
-    // 如果配置了group_id，则添加到心跳数据中
-    if (groupId && groupId.trim() !== '') {
-      this.cachedHeartbeatData.group_id = groupId.trim();
-    }
-
-    // 心跳数据更新后，如果启用了WebSocket并且有URL，立即尝试发送一次心跳
-    if (this.enabled && this.url) {
-      this.sendHeartbeat();
-    }
-  }
-
-  private sendMessage(message: WebSocketHeartbeatMessage): void {
-    if (!this.ws || !this.isConnected) {
-      return;
-    }
-
-    try {
-      this.ws.send(JSON.stringify(message));
-    } catch (error) {
-      logWithTime(`WebSocket发送消息失败: ${error}`);
-    }
-  }
-
-  public disconnect(): void {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-
-    this.isConnected = false;
-    
-    logWithTime('WebSocket已断开连接');
-  }
-
-  public getConnectionStatus(): { enabled: boolean; connected: boolean; hasError: boolean } {
-    return {
-      enabled: this.enabled,
-      connected: this.isConnected,
-      hasError: this.hasConnectionError
-    };
-  }
-
-  public dispose(): void {
-    this.stopHeartbeat();
-    this.disconnect();
-  }
-}
-
 // ==================== 主类 ====================
 class TraeUsageProvider {
   private usageData: ApiResponse | null = null;
@@ -440,20 +132,13 @@ class TraeUsageProvider {
   private clickCount = 0;
   private isRefreshing = false;
   private isManualRefresh = false;
-  private webSocketManager: WebSocketManager;
   private usageDetailCollector: UsageDetailCollector;
   private dashboardGenerator: UsageDashboardGenerator;
 
   constructor(private context: vscode.ExtensionContext) {
     this.statusBarItem = this.createStatusBarItem();
-    this.webSocketManager = new WebSocketManager(context);
     this.usageDetailCollector = new UsageDetailCollector(context);
     this.dashboardGenerator = new UsageDashboardGenerator(context);
-
-    // 设置WebSocket状态变化回调
-    this.webSocketManager.setStatusChangeCallback(() => {
-      this.updateStatusBar();
-    });
     
     this.initialize();
   }
@@ -487,8 +172,7 @@ class TraeUsageProvider {
     } else {
       this.updateStatusBar();
     }
-
-    this.webSocketManager.updateConfig();
+    
     this.startAutoRefresh();
     this.fetchUsageData();
   }
@@ -569,11 +253,7 @@ class TraeUsageProvider {
     const { totalUsage, totalLimit } = stats;
     const remaining = totalLimit - totalUsage;
     
-    // 检查WebSocket连接状态
-    const wsStatus = this.webSocketManager.getConnectionStatus();
-    const icon = (wsStatus.enabled && wsStatus.hasError) ? '⚠️' : '⚡';
-    
-    this.statusBarItem.text = `${icon} Fast: ${totalUsage}/${totalLimit} (${t('statusBar.remaining', { remaining: remaining.toString() })})`;
+    this.statusBarItem.text = `⚡ Fast: ${totalUsage}/${totalLimit} (${t('statusBar.remaining', { remaining: remaining.toString() })})`;
     this.statusBarItem.color = undefined;
     this.statusBarItem.tooltip = this.buildDetailedTooltip();
   }
@@ -647,20 +327,8 @@ class TraeUsageProvider {
       sections.push(`[${progressBar}]`);
       sections.push('');
     }
-
-    // 3. WebSocket连接状态
-    const wsStatus = this.webSocketManager.getConnectionStatus();
-    if (wsStatus.enabled) {
-      if (wsStatus.connected) {
-        sections.push('🟢 Connected');
-      } else if (wsStatus.hasError) {
-        sections.push('🔴 Connection Failed');
-      } else {
-        sections.push('🟡 Connecting...');
-      }
-    }
     
-    // 4. 最近更新时间
+    // 最近更新时间
     const now = new Date();
     const updateTime = now.toLocaleString('zh-CN', {
       month: '2-digit',
@@ -740,9 +408,6 @@ class TraeUsageProvider {
       this.handleTokenExpired();
     }
 
-    // 更新WebSocket心跳数据
-    await this.webSocketManager.updateHeartbeatData(data);
-
     this.updateStatusBar();
     this.resetRefreshState();
   }
@@ -813,8 +478,6 @@ class TraeUsageProvider {
     }, RETRY_DELAY);
   }
 
-
-
   // ==================== 消息显示 ====================
   private showSetSessionMessage(): void {
     vscode.window.showWarningMessage(
@@ -857,12 +520,12 @@ class TraeUsageProvider {
 
   // ==================== 自动刷新 ====================
   public startAutoRefresh(): void {
+    this.clearRefreshTimer();
+
     const config = vscode.workspace.getConfiguration('traeUsage');
     const intervalSeconds = config.get<number>('refreshInterval', 300);
     const intervalMilliseconds = intervalSeconds * 1000;
     
-    this.clearRefreshTimer();
-
     const maxInterval = 2147483647;
     const safeInterval = Math.min(intervalMilliseconds, maxInterval);
 
@@ -878,11 +541,6 @@ class TraeUsageProvider {
     }
   }
 
-  // ==================== WebSocket配置更新 ====================
-  public updateWebSocketConfig(): void {
-    this.webSocketManager.updateConfig();
-  }
-
   // ==================== 清理 ====================
   dispose(): void {
     this.clearRefreshTimer();
@@ -893,7 +551,6 @@ class TraeUsageProvider {
     if (this.statusBarItem) {
       this.statusBarItem.dispose();
     }
-    this.webSocketManager.dispose();
     disposeOutputChannel();
   }
 }
@@ -1002,9 +659,6 @@ function registerListeners(context: vscode.ExtensionContext, provider: TraeUsage
     if (e.affectsConfiguration('traeUsage.language')) {
       initializeI18n();
       provider.fetchUsageData();
-    }
-    if (e.affectsConfiguration('traeUsage.websocketUrl') || e.affectsConfiguration('traeUsage.enableWebsocket')) {
-      provider.updateWebSocketConfig();
     }
   });
 

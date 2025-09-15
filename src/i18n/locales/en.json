@@ -67,7 +67,7 @@
     "sessionIdExpiredMessage": "Session ID already set. If expired, use installed Trae Usage browser extension to visit official website for latest Session ID.",
     "visitOfficialUsagePage": "Visit Official Page",
     "resetSessionId": "Reset Session ID",
-    "pleaseInstallExtensionFirst": "Please install Trae Usage browser extension to get Session ID first. After installation, visit official website to automatically get it. VSCode will automatically detect Session ID in clipboard when you return.",
+    "pleaseInstallExtensionFirst": "Please install browser extension to get Session ID first. After installation, visit official website to automatically get it. VSCode will automatically detect Session ID in clipboard when you return.",
     "installChromeExtension": "Install Chrome Extension",
     "installEdgeExtension": "Install Edge Extension",
     "clipboardSessionDetected": "Session ID detected in clipboard:\n{sessionId}...\n\nUpdate to new Session ID?",
@@ -84,9 +84,7 @@
   "configuration": {
     "title": "Trae Usage",
     "sessionIdDescription": "Trae session ID (X-Cloudide-Session cookie value)",
-    "refreshIntervalDescription": "Refresh interval in minutes",
-    "websocketUrlDescription": "WebSocket server URL (e.g., ws://localhost:8080/ws)",
-    "enableWebsocketDescription": "Enable WebSocket real-time data delivery"
+    "refreshIntervalDescription": "Refresh interval in minutes"
   },
   
   "serviceTypes": {
