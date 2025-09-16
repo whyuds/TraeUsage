@@ -338,6 +338,23 @@ export class UsageDashboardGenerator {
             margin-bottom: 20px;
             border-left: 4px solid var(--vscode-textLink-foreground);
         }
+        .recent-requests-table {
+            font-size: 13px;
+        }
+        .recent-requests-table th {
+            white-space: nowrap;
+            font-size: 12px;
+            padding: 8px 6px;
+        }
+        .recent-requests-table td {
+            padding: 6px;
+            font-size: 12px;
+        }
+        .session-id {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+        }
     </style>
 </head>
 <body>
@@ -384,9 +401,9 @@ export class UsageDashboardGenerator {
         ${this.generateModeStatsTable(summary)}
     </div>
 
-    <div id="dailyStats" class="chart-section">
-        <h2>📅 Daily Usage Statistics</h2>
-        ${this.generateDailyStatsTable(summary)}
+    <div id="recentRequests" class="chart-section">
+        <h2>📋 Recent 100 Requests</h2>
+        ${this.generateRecentRequestsTable(allUsageDetails)}
     </div>
 
     <div class="header">
@@ -783,31 +800,46 @@ export class UsageDashboardGenerator {
         </table>`;
   }
 
-  private generateDailyStatsTable(summary: UsageSummary): string {
+  private generateRecentRequestsTable(allUsageDetails: UsageDetailItem[]): string {
+    // 按时间倒序排序，取最近100条
+    const recentRequests = allUsageDetails
+      .sort((a, b) => b.usage_time - a.usage_time)
+      .slice(0, 100);
+
     return `
-        <table class="table">
+        <table class="table recent-requests-table">
             <thead>
                 <tr>
-                    <th>Date</th>
-                    <th>Usage Count</th>
+                    <th>Time</th>
+                    <th>Model</th>
+                    <th>Mode</th>
+                    <th>Input Tokens</th>
+                    <th>Output Tokens</th>
+                    <th>Cache Read</th>
+                    <th>Cache Write</th>
                     <th>Usage</th>
                     <th>Cost</th>
-                    <th>Models Used</th>
+                    <th>Session ID</th>
                 </tr>
             </thead>
             <tbody>
-                ${Object.entries(summary.daily_stats)
-                  .sort(([a], [b]) => b.localeCompare(a))
-                  .map(([date, stats]) => `
+                ${recentRequests.map(item => `
                     <tr>
-                        <td>${date}</td>
-                        <td>${stats.count}</td>
-                        <td>${(stats.amount || 0).toFixed(2)}</td>
-                        <td>$${(stats.cost || 0).toFixed(2)}</td>
-                        <td>${stats.models.join(', ')}</td>
+                        <td>${new Date(item.usage_time * 1000).toLocaleString()}</td>
+                        <td>${item.model_name}</td>
+                        <td><span class="${item.use_max_mode ? 'max-mode' : 'normal-mode'}">${item.use_max_mode ? 'Max' : 'Normal'}</span></td>
+                        <td>${item.extra_info.input_token.toLocaleString()}</td>
+                        <td>${item.extra_info.output_token.toLocaleString()}</td>
+                        <td>${item.extra_info.cache_read_token.toLocaleString()}</td>
+                        <td>${item.extra_info.cache_write_token.toLocaleString()}</td>
+                        <td>${item.amount_float.toFixed(2)}</td>
+                        <td>$${item.cost_money_float.toFixed(4)}</td>
+                        <td class="session-id">${item.session_id.substring(0, 8)}...</td>
                     </tr>
                 `).join('')}
             </tbody>
         </table>`;
   }
+
+
 }
