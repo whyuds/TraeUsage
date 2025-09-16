@@ -4,21 +4,28 @@
 
 A VSCode extension for real-time monitoring of Trae AI usage statistics.
 
-<img src="img/image.png" alt="功能截图" height="300">
+### Status Bar
 
-## Demo
+<div align="center">
+<img src="img/Bar.jpg" alt="feature screenshot" width="300"></div>
 
-<img src="img/traeusage_shot.gif" alt="feature screenshot" width="600">
+### Detailed Dashboard
+
+<div align="center">
+<img src="img/Dashboard.jpg" alt="feature screenshot" width="600">
+</div>
 
 ## Installation and Usage
 
-### 1. Installation
+### 1. Installation Demo
 
-Search for "Trae Usage" in the Trae marketplace.
+<div align="center">
+  <img src="https://raw.githubusercontent.com/whyuds/TraeUsage/refs/heads/master/img/traeusage_shot.gif" alt="feature screenshot" width="600">
+</div>
 
 ### 2. Get Session ID
 
-**Method 1: Using Browser Extension (Highly Recommended)**
+**Using Browser Extension**
 
 **Chrome Browser:**
 1. Install Chrome Extension: [Trae Usage Token Extractor](https://chromewebstore.google.com/detail/edkpaodbjadikhahggapfilgmfijjhei?utm_source=item-share-cb)
@@ -32,32 +39,17 @@ Search for "Trae Usage" in the Trae marketplace.
 3. Login and browse the usage page to automatically get Session ID
 4. Click the Chrome extension icon to automatically copy Session ID to clipboard
 5. Return to Trae, the Trae Usage extension will automatically detect clipboard and configure Session ID
+6. Press Ctrl+Shift+P to open command palette, type TraeUsage: Collect Usage Details
 
 ### 3. View Usage
 
 After configuration, a "Trae Usage" view will appear in the VSCode Explorer panel on the left, displaying:
 
 - ⚡ Premium Fast Request: Usage and remaining quota for fast requests
-- 🐌 Premium Slow Request: Usage and remaining quota for slow requests
+- 🐌 Premium Slow Request: Usage and remaining quota for slow requests  
 - 🔧 Auto Completion: Usage and remaining quota for auto completion
 - 🚀 Advanced Model: Usage and remaining quota for advanced models
 
-## Features
-
-- **Real-time Monitoring**: Automatically refresh usage data at regular intervals
-- **Multi-language Support**: Supports both Chinese and English interfaces
-- **Visual Status Bar**: Shows current usage status in the status bar
-- **Subscription Management**: View subscription packages and their status
-- **Automatic Session Detection**: Automatically detects Session ID from clipboard
-- **Browser Extension Integration**: Seamless integration with browser extensions
-
-## Configuration
-
-The extension provides the following configuration options:
-
-- **Session ID**: Your Trae AI session identifier
-- **Refresh Interval**: How often to refresh usage data (in milliseconds)
-- **Language**: Interface language (Auto Detect, Chinese, English)
 
 ## Feedback and Support
 

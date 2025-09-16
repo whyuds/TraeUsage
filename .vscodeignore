@@ -7,3 +7,6 @@ esbuild.js
 .gitignore
 .github/**
 .idea/**
+img/*.gif
+img/*.jpg
+img/*.jpeg

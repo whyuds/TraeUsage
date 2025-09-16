@@ -4,13 +4,6 @@
 
 一个VSCode扩展，用于实时监控Trae AI的使用量统计。
 
-
-### 配置演示
-
-<div align="center">
-  <img src="img/traeusage_shot.gif" alt="功能截图" width="600">
-</div>
-
 ### 状态栏
 
 <div align="center">
@@ -24,13 +17,15 @@
 
 ## 安装和使用
 
-### 1. 安装
+### 1. 安装演示
 
-Trae的应用市场搜索Trae Usage
+<div align="center">
+  <img src="https://raw.githubusercontent.com/whyuds/TraeUsage/refs/heads/master/img/traeusage_shot.gif" alt="功能截图" width="600">
+</div>
 
 ### 2. 获取Session ID
 
-**方法一：使用浏览器扩展（强烈推荐）**
+**使用浏览器扩展**
 
 **Chrome浏览器：**
 1. 安装Chrome扩展：[Trae Usage Token Extractor](https://chromewebstore.google.com/detail/edkpaodbjadikhahggapfilgmfijjhei?utm_source=item-share-cb)
