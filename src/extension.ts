@@ -338,10 +338,10 @@ class TraeUsageProvider {
           
           // 添加订阅标题（如果有多个订阅）
           if (validPacks.length > 1) {
-            sections.push(`${subscriptionType} (${index + 1}/${validPacks.length}):`);
+            sections.push(`${subscriptionType} (${fastUsed}/${fastLimit})  Expire: ${formatTimestamp(entitlement_base_info.end_time)}`);
           }
           
-          sections.push(`Expire: ${formatTimestamp(entitlement_base_info.end_time)} Usage: ${fastUsed}/${fastLimit}`);
+          // sections.push(`Expire: ${formatTimestamp(entitlement_base_info.end_time)}`);
           sections.push(`[${progressBar}] ${percentage}%`);
           
           // 如果不是最后一个订阅，添加分隔线
@@ -350,11 +350,9 @@ class TraeUsageProvider {
           }
         }
       });
-      
-      sections.push('');
     }
     
-    // 最近更新时间
+    // 最近更新时间 - 移到右下角，添加时间图标
     const now = new Date();
     const updateTime = now.toLocaleString('zh-CN', {
       month: '2-digit',
@@ -363,8 +361,9 @@ class TraeUsageProvider {
       minute: '2-digit',
       hour12: false
     }).replace(/\/(\d{2})\/(\d{2})/, '$1/$2').replace(/, /, ' ');
-    sections.push(`Updated: ${updateTime}`);
     
+    sections.push('');
+    sections.push(`${' '.repeat(50)}🕐 ${updateTime}`);
     return sections.join('\n');
   }
 
@@ -377,9 +376,9 @@ class TraeUsageProvider {
       const productType = entitlement_base_info.product_type;
       switch (productType) {
         case 1:
-          return 'Subscription';
+          return 'Pro Plan';
         case 2:
-          return 'Package';
+          return 'Extra Package';
         default:
           return 'Unknown';
       }
