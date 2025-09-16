@@ -3,6 +3,7 @@ import axios from 'axios';
 import { logWithTime } from './utils';
 import { TokenResponse } from './extension';
 import { t } from './i18n';
+import { UsageDetailResponse } from './types';
 
 // 常量定义
 const DEFAULT_HOST = 'https://api-sg-central.trae.ai';
@@ -20,6 +21,7 @@ export class ApiService {
   private cachedToken: string | null = null;
   private cachedSessionId: string | null = null;
   private hasSwitchedHost: boolean = false;
+  private currentHost: string = DEFAULT_HOST;
 
   private constructor() {}
 
@@ -100,6 +102,7 @@ export class ApiService {
     this.cachedToken = null;
     this.cachedSessionId = null;
     this.hasSwitchedHost = false;
+    this.currentHost = DEFAULT_HOST;
   }
 
   /**
@@ -200,20 +203,181 @@ export class ApiService {
   }
 
   /**
+   * 统一的错误处理方法
+   * @param error 错误对象
+   * @param operationName 操作名称
+   * @param showUserMessage 是否显示用户消息
+   */
+  public handleApiError(error: any, operationName: string, showUserMessage: boolean = false): void {
+    const errorMessage = `${operationName}失败: ${String(error)}`;
+    logWithTime(errorMessage);
+    
+    if (showUserMessage) {
+      if (this.isRetryableError(error)) {
+        vscode.window.showErrorMessage(t('messages.networkUnstable'));
+      } else if (this.isTokenError(error)) {
+        vscode.window.showErrorMessage(t('messages.cannotGetToken'));
+      } else {
+        vscode.window.showErrorMessage(`${operationName}失败，请稍后重试`);
+      }
+    }
+  }
+
+  /**
+   * 检查API响应是否成功
+   * @param response API响应
+   * @returns boolean
+   */
+  public isApiResponseSuccess(response: any): boolean {
+    return response && (!response.code || response.code === 0);
+  }
+
+  /**
+   * 处理API响应错误
+   * @param response API响应
+   * @param operationName 操作名称
+   */
+  public handleApiResponseError(response: any, operationName: string): void {
+    if (response?.code === 1001) {
+      logWithTime(`${operationName}: Token已失效(code: 1001)`);
+      this.clearCache();
+      vscode.window.showErrorMessage(t('messages.tokenExpired'));
+    } else if (response?.code) {
+      logWithTime(`${operationName}: API返回错误码 ${response.code}, 消息: ${response.message || 'Unknown error'}`);
+      vscode.window.showErrorMessage(`${operationName}失败: ${response.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
    * 获取当前主机地址
    */
   private getHost(): string {
-    const config = vscode.workspace.getConfiguration('traeUsage');
-    return config.get<string>('host') || DEFAULT_HOST;
+    return this.currentHost;
   }
 
   /**
    * 设置主机地址
    */
-  private async setHost(host: string): Promise<void> {
-    const config = vscode.workspace.getConfiguration('traeUsage');
-    await config.update('host', host, vscode.ConfigurationTarget.Global);
+  public async setHost(host: string): Promise<void> {
+    this.currentHost = host;
     logWithTime(`主机地址已更新为: ${host}`);
+  }
+
+  /**
+   * 重置为默认主机地址
+   */
+  public async resetToDefaultHost(): Promise<void> {
+    this.hasSwitchedHost = false;
+    await this.setHost(DEFAULT_HOST);
+  }
+
+  /**
+   * 获取用户当前权益列表
+   * @param authToken 认证Token
+   * @returns Promise<any | null>
+   */
+  public async getUserEntitlementList(authToken: string): Promise<any | null> {
+    try {
+      const result = await this.apiRequestWithRetry(async () => {
+        const currentHost = this.getHost();
+        const response = await axios.post(
+          `${currentHost}/trae/api/v1/pay/user_current_entitlement_list`,
+          {},
+          {
+            headers: {
+              'authorization': `Cloud-IDE-JWT ${authToken}`,
+              'Host': new URL(currentHost).hostname,
+              'Content-Type': 'application/json'
+            },
+            timeout: API_TIMEOUT
+          }
+        );
+
+        return response.data;
+      }, '获取用户权益列表');
+
+      return result;
+    } catch (error) {
+      logWithTime(`获取用户权益列表失败: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取订阅时间范围
+   * @param authToken 认证Token
+   * @returns Promise<{ start_time: number; end_time: number } | null>
+   */
+  public async getSubscriptionTimeRange(authToken: string): Promise<{ start_time: number; end_time: number } | null> {
+    try {
+      const result = await this.getUserEntitlementList(authToken);
+      
+      if (result?.user_entitlement_pack_list?.length > 0) {
+        const pack = result.user_entitlement_pack_list[0];
+        return {
+          start_time: pack.entitlement_base_info.start_time,
+          end_time: pack.entitlement_base_info.end_time
+        };
+      }
+      
+      throw new Error('No entitlement pack found');
+    } catch (error) {
+      logWithTime(`获取订阅时间范围失败: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * 查询用户使用详情（按会话分组）
+   * @param authToken 认证Token
+   * @param start_time 开始时间
+   * @param end_time 结束时间
+   * @param pageNum 页码
+   * @param pageSize 页大小
+   * @returns Promise<UsageDetailResponse | null>
+   */
+  public async queryUserUsageGroupBySession(
+    authToken: string,
+    start_time: number,
+    end_time: number,
+    pageNum: number,
+    pageSize: number
+  ): Promise<UsageDetailResponse | null> {
+    try {
+      const result = await this.apiRequestWithRetry(async () => {
+        const currentHost = this.getHost();
+        const url = `${currentHost}/trae/api/v1/pay/query_user_usage_group_by_session`;
+        const requestBody = {
+          start_time,
+          end_time,
+          page_size: pageSize,
+          page_num: pageNum
+        };
+        const headers = {
+          'authorization': `Cloud-IDE-JWT ${authToken}`,
+          'Host': new URL(currentHost).hostname,
+          'Content-Type': 'application/json'
+        };
+
+        logWithTime(`请求第${pageNum}页使用详情数据: ${url}`);
+
+        const response = await axios.post<UsageDetailResponse>(
+          url,
+          requestBody,
+          {
+            headers,
+            timeout: 10000
+          }
+        );
+
+        return response.data;
+      }, `获取第${pageNum}页使用详情`);
+
+      return result;
+    } catch (error: any) {
+      logWithTime(`获取第${pageNum}页使用详情失败: ${error}`);
+      return null;
+    }
   }
 }
 

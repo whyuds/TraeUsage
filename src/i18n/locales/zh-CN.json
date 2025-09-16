@@ -107,7 +107,7 @@
     "userCancelled": "用户取消了收集操作",
     "collectedPage": "已收集第 {page} 页，新增: {collected}, 更新: {updated}",
     "collectionComplete": "收集完成!",
-    "collectionCompleteMessage": "收集完成！新增 {collected} 条记录，更新 {updated} 条记录，总记录数: {total}",
+    "collectionCompleteMessage": "新增 {collected} 条记录，更新 {updated} 条记录，总记录数: {total}",
     "viewDashboard": "查看仪表板",
     "collectionError": "收集过程中出错: {error}",
     "requestPageData": "请求第{page}页数据: {url}",

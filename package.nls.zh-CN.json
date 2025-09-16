@@ -7,7 +7,6 @@
   "views.traeUsageView.name": "Trae Usage",
   "configuration.title": "Trae Usage",
   "configuration.sessionId.description": "Trae AI session ID (X-Cloudide-Session cookie值)",
-  "configuration.host.description": "Trae AI API 主机地址（会随Session ID自动配置）",
   "configuration.refreshInterval.description": "刷新间隔时间（秒）",
   "configuration.language.description": "扩展显示语言",
   "configuration.language.auto": "自动检测",

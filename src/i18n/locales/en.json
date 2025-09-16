@@ -107,7 +107,7 @@
     "userCancelled": "User cancelled the collection operation",
     "collectedPage": "Collected page {page}, new: {collected}, updated: {updated}",
     "collectionComplete": "Complete",
-    "collectionCompleteMessage": "Complete! Added {collected} records, updated {updated} records, total records: {total}",
+    "collectionCompleteMessage": "Added {collected} records, updated {updated} records, total records: {total}",
     "viewDashboard": "View Dashboard",
     "collectionError": "Error during collection: {error}",
     "requestPageData": "Requesting page {page} data: {url}",

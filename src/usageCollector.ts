@@ -1,21 +1,14 @@
 import * as vscode from 'vscode';
-import * as os from 'os';
-import axios from 'axios';
 import { 
   UsageDetailItem, 
   UsageDetailResponse, 
   StoredUsageData
 } from './types';
 import { logWithTime, formatTimestamp } from './utils';
-import { ApiResponse, TokenResponse } from './extension';
 import { t } from './i18n';
 import { getApiService } from './apiService';
 
-const DEFAULT_HOST = 'https://api-sg-central.trae.ai';
-const API_TIMEOUT = 3000;
 const USAGE_DATA_FILE = 'usage_data.json';
-const MAX_RETRIES = 5; // 最大重试次数
-const RETRY_DELAY = 1000; // 重试延迟（毫秒）
 
 export class UsageDetailCollector {
   private context: vscode.ExtensionContext;
@@ -106,63 +99,11 @@ export class UsageDetailCollector {
     return { start_time, end_time };
   }
 
-  // 带重试机制的通用API请求函数
-  private async apiRequestWithRetry<T>(
-    requestFn: () => Promise<T>,
-    operationName: string,
-    maxRetries: number = MAX_RETRIES
-  ): Promise<T> {
-    let lastError: any;
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        const result = await requestFn();
-        if (attempt > 1) {
-          logWithTime(`${operationName} 在第${attempt}次尝试后成功`);
-        }
-        return result;
-      } catch (error) {
-        lastError = error;
-        logWithTime(`${operationName} 第${attempt}次尝试失败: ${String(error)}`);
-        
-        if (attempt < maxRetries) {
-          const delay = RETRY_DELAY * attempt; // 递增延迟
-          logWithTime(`等待${delay}ms后进行第${attempt + 1}次重试`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-    }
-    
-    throw new Error(`${operationName} 在${maxRetries}次重试后仍然失败: ${String(lastError)}`);
-  }
+
 
   private async getSubscriptionTimeRange(authToken: string): Promise<{ start_time: number; end_time: number } | null> {
     try {
-      const result = await this.apiRequestWithRetry(async () => {
-        const currentHost = this.getHost();
-        const response = await axios.post<ApiResponse>(
-          `${currentHost}/trae/api/v1/pay/user_current_entitlement_list`,
-          {},
-          {
-            headers: {
-              'authorization': `Cloud-IDE-JWT ${authToken}`,
-              'Host': new URL(currentHost).hostname,
-              'Content-Type': 'application/json'
-            },
-            timeout: API_TIMEOUT
-          }
-        );
-
-        if (response.data.user_entitlement_pack_list?.length > 0) {
-          const pack = response.data.user_entitlement_pack_list[0];
-          return {
-            start_time: pack.entitlement_base_info.start_time,
-            end_time: pack.entitlement_base_info.end_time
-          };
-        }
-        throw new Error('No entitlement pack found');
-      }, '获取订阅时间范围');
-
+      const result = await this.apiService.getSubscriptionTimeRange(authToken);
       return result;
     } catch (error) {
       logWithTime(t('usageCollector.getSubscriptionFailed', { error: String(error) }));
@@ -275,35 +216,13 @@ export class UsageDetailCollector {
     pageSize: number
   ): Promise<UsageDetailResponse | null> {
     try {
-      const result = await this.apiRequestWithRetry(async () => {
-        const currentHost = this.getHost();
-        const url = `${currentHost}/trae/api/v1/pay/query_user_usage_group_by_session`;
-        const requestBody = {
-          start_time,
-          end_time,
-          page_size: pageSize,
-          page_num: pageNum
-        };
-        const headers = {
-          'authorization': `Cloud-IDE-JWT ${authToken}`,
-          'Host': new URL(currentHost).hostname,
-          'Content-Type': 'application/json'
-        };
-
-        logWithTime(t('usageCollector.requestPageData', { page: pageNum, url }));
-
-        const response = await axios.post<UsageDetailResponse>(
-          url,
-          requestBody,
-          {
-            headers,
-            timeout: 10000
-          }
-        );
-
-        return response.data;
-      }, `获取第${pageNum}页使用详情`);
-
+      const result = await this.apiService.queryUserUsageGroupBySession(
+        authToken,
+        start_time,
+        end_time,
+        pageNum,
+        pageSize
+      );
       return result;
     } catch (error: any) {
       logWithTime(t('usageCollector.fetchPageFailed', { page: pageNum, error: String(error) }));
@@ -332,14 +251,9 @@ export class UsageDetailCollector {
     return config.get<string>('sessionId');
   }
 
-  private getHost(): string {
-    const config = vscode.workspace.getConfiguration('traeUsage');
-    return config.get<string>('host') || DEFAULT_HOST;
-  }
-
   private async getAuthToken(sessionId: string): Promise<string | null> {
     try {
-      const result = await this.apiService.getTokenWithRetry(sessionId, MAX_RETRIES);
+      const result = await this.apiService.getTokenWithRetry(sessionId);
       return result;
     } catch (error) {
       logWithTime(t('usageCollector.getTokenFailed', { error: String(error) }));

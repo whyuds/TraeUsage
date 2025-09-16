@@ -57,11 +57,6 @@
           "default": "",
           "description": "%configuration.sessionId.description%"
         },
-        "traeUsage.host": {
-          "type": "string",
-          "default": "https://api-sg-central.trae.ai",
-          "description": "%configuration.host.description%"
-        },
         "traeUsage.refreshInterval": {
           "type": "number",
           "default": 300,
@@ -81,11 +76,6 @@
           ],
           "default": "auto",
           "description": "%configuration.language.description%"
-        },
-        "traeUsage.lastUsageDataFile": {
-          "type": "string",
-          "default": "",
-          "description": "最新使用量数据文件路径"
         }
       }
     }

@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import * as os from 'os';
 import * as cp from 'child_process';
-import axios from 'axios';
 import { initializeI18n, t } from './i18n';
 import { UsageDetailCollector } from './usageCollector';
 import { UsageDashboardGenerator } from './dashboardGenerator';
@@ -69,10 +68,8 @@ export interface TokenResponse {
 type BrowserType = 'chrome' | 'edge' | 'unknown';
 
 // ==================== 常量定义 ====================
-const DEFAULT_HOST = 'https://api-sg-central.trae.ai';
-const FALLBACK_HOST = 'https://api-us-east.trae.ai';
+// 常量定义
 const DOUBLE_CLICK_DELAY = 300;
-const API_TIMEOUT = 3000;
 const MAX_RETRY_COUNT = 3;
 const RETRY_DELAY = 1000;
 
@@ -361,8 +358,8 @@ class TraeUsageProvider {
         return;
       }
 
-      const response = await this.callUsageApi(authToken);
-      this.handleApiResponse(response.data);
+      const responseData = await this.callUsageApi(authToken);
+      await this.handleApiResponse(responseData);
     } catch (error) {
       this.handleFetchError(error, retryCount);
     }
@@ -373,39 +370,22 @@ class TraeUsageProvider {
     return config.get<string>('sessionId');
   }
 
-  private getHost(): string {
-    const config = vscode.workspace.getConfiguration('traeUsage');
-    return config.get<string>('host') || DEFAULT_HOST;
-  }
 
-  private async setHost(host: string): Promise<void> {
-    const config = vscode.workspace.getConfiguration('traeUsage');
-    await config.update('host', host, vscode.ConfigurationTarget.Global);
-    logWithTime(`主机地址已更新为: ${host}`);
-  }
 
   private async callUsageApi(authToken: string) {
-    const currentHost = this.getHost();
-    return axios.post(
-      `${currentHost}/trae/api/v1/pay/user_current_entitlement_list`,
-      {},
-      {
-        headers: {
-          'authorization': `Cloud-IDE-JWT ${authToken}`,
-          'Host': new URL(currentHost).hostname,
-          'Content-Type': 'application/json'
-        },
-        timeout: API_TIMEOUT
-      }
-    );
+    return this.apiService.getUserEntitlementList(authToken);
   }
 
   private async handleApiResponse(data: ApiResponse): Promise<void> {
     this.usageData = data;
     logWithTime('更新使用量数据');
     
-    if (this.usageData?.code === 1001) {
-      this.handleTokenExpired();
+    // 使用apiService的统一错误处理
+    if (!this.apiService.isApiResponseSuccess(data)) {
+      this.apiService.handleApiResponseError(data, '获取使用量数据');
+      if (data?.code === 1001) {
+        this.handleTokenExpired();
+      }
     }
 
     this.updateStatusBar();
@@ -594,7 +574,7 @@ class ClipboardMonitor {
     
     if (choice === t('messages.confirmUpdate')) {
       await config.update('sessionId', sessionId, vscode.ConfigurationTarget.Global);
-      await config.update('host', DEFAULT_HOST, vscode.ConfigurationTarget.Global);
+      await getApiService().resetToDefaultHost();
       vscode.window.showInformationMessage(t('messages.sessionIdAutoUpdated'));
       vscode.commands.executeCommand('traeUsage.refresh');
     }
