@@ -33,9 +33,19 @@ interface EntitlementPack {
     quota: QuotaData;
     user_id: string;
     start_time: number;
+    product_type?: number;
+    entitlement_id?: string;
+    charge_amount?: number;
+    currency?: number;
+    product_extra?: any;
   };
   usage: UsageData;
   status: number;
+  expire_time?: number;
+  is_last_period?: boolean;
+  next_billing_time?: number;
+  source_id?: string;
+  yearly_expire_time?: number;
 }
 
 export interface ApiResponse {
@@ -308,20 +318,39 @@ class TraeUsageProvider {
     if (validPacks.length === 0) {
       sections.push(t('tooltip.noValidPacks'));
     } else {
-      // 只显示第一个有效订阅包的Premium Fast Request信息
-      const pack = validPacks[0];
-      const { usage, entitlement_base_info } = pack;
-      const { quota } = entitlement_base_info;
+      // 显示所有有效订阅包的Premium Fast Request信息
+      validPacks.forEach((pack, index) => {
+        const { usage, entitlement_base_info } = pack;
+        const { quota } = entitlement_base_info;
+        
+        // 获取订阅类型标识
+        const subscriptionType = this.getSubscriptionTypeLabel(pack);
+        
+        // Premium Fast Request使用情况(带进度条)
+        const fastUsed = usage.premium_model_fast_request_usage;
+        const fastLimit = quota.premium_model_fast_request_limit;
+        
+        if (fastLimit > 0) {
+          const percentage = Math.round((fastUsed / fastLimit) * 100);
+          const progressBarLength = 25;
+          const filledLength = Math.round((fastUsed / fastLimit) * progressBarLength);
+          const progressBar = '█'.repeat(filledLength) + '░'.repeat(progressBarLength - filledLength);
+          
+          // 添加订阅标题（如果有多个订阅）
+          if (validPacks.length > 1) {
+            sections.push(`${subscriptionType} (${index + 1}/${validPacks.length}):`);
+          }
+          
+          sections.push(`Expire: ${formatTimestamp(entitlement_base_info.end_time)} Usage: ${fastUsed}/${fastLimit}`);
+          sections.push(`[${progressBar}] ${percentage}%`);
+          
+          // 如果不是最后一个订阅，添加分隔线
+          if (index < validPacks.length - 1) {
+            sections.push('');
+          }
+        }
+      });
       
-      // 1. Premium Fast Request使用情况(带进度条)
-      const fastUsed = usage.premium_model_fast_request_usage;
-      const fastLimit = quota.premium_model_fast_request_limit;
-      const percentage = Math.round((fastUsed / fastLimit) * 100);
-      const progressBarLength = 25;
-      const filledLength = Math.round((fastUsed / fastLimit) * progressBarLength);
-      const progressBar = '█'.repeat(filledLength) + '░'.repeat(progressBarLength - filledLength);
-      sections.push(`Expire: ${formatTimestamp(entitlement_base_info.end_time)} Usage: ${fastUsed}/${fastLimit} `)
-      sections.push(`[${progressBar}]`);
       sections.push('');
     }
     
@@ -337,6 +366,34 @@ class TraeUsageProvider {
     sections.push(`Updated: ${updateTime}`);
     
     return sections.join('\n');
+  }
+
+  // 获取订阅类型标签
+  private getSubscriptionTypeLabel(pack: EntitlementPack): string {
+    const { entitlement_base_info } = pack;
+    
+    // 根据product_type判断订阅类型
+    if (entitlement_base_info.product_type !== undefined) {
+      const productType = entitlement_base_info.product_type;
+      switch (productType) {
+        case 1:
+          return 'Subscription';
+        case 2:
+          return 'Package';
+        default:
+          return 'Unknown';
+      }
+    }
+    
+    // 如果没有product_type，根据其他特征判断
+    const { quota } = entitlement_base_info;
+    if (quota.premium_model_fast_request_limit === -1) {
+      return 'Unlimited';
+    } else if (quota.premium_model_fast_request_limit > 1000) {
+      return 'Premium';
+    } else {
+      return 'Basic';
+    }
   }
 
   // ==================== API 调用 ====================
