@@ -1,0 +1,51 @@
+{
+    "mark": "无订阅",
+    "is_pay_freshman": false,
+    "user_entitlement_pack_list": [
+        {
+            "entitlement_base_info": {
+                "charge_amount": 0,
+                "currency": 0,
+                "end_time": 1759276799,
+                "entitlement_id": "free_utc20259_7480047463120110593",
+                "product_extra": {
+                    "subscription_extra": {
+                        "period_type": 0,
+                        "quota": {
+                            "advanced_model_request_limit": 1000,
+                            "auto_completion_limit": 5000,
+                            "premium_model_fast_request_limit": 10,
+                            "premium_model_slow_request_limit": 50
+                        }
+                    }
+                },
+                "product_type": 0,
+                "quota": {
+                    "advanced_model_request_limit": 1000,
+                    "auto_completion_limit": 5000,
+                    "premium_model_fast_request_limit": 10,
+                    "premium_model_slow_request_limit": 50
+                },
+                "start_time": 1756684800,
+                "user_id": "7480047463120110593"
+            },
+            "expire_time": 0,
+            "is_last_period": false,
+            "next_billing_time": 0,
+            "source_id": "",
+            "status": 1,
+            "usage": {
+                "advanced_model_amount": 0,
+                "advanced_model_request_usage": 0,
+                "auto_completion_amount": 0,
+                "auto_completion_usage": 0,
+                "is_flash_consuming": true,
+                "premium_model_fast_amount": 0,
+                "premium_model_fast_request_usage": 0,
+                "premium_model_slow_amount": 0,
+                "premium_model_slow_request_usage": 0
+            },
+            "yearly_expire_time": 0
+        }
+    ]
+}

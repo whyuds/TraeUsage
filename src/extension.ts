@@ -129,7 +129,7 @@ function parseBrowserOutput(output: string): BrowserType {
 }
 
 // ==================== 主类 ====================
-class TraeUsageProvider {
+export class TraeUsageProvider {
   private usageData: ApiResponse | null = null;
   private refreshTimer: NodeJS.Timeout | null = null;
   private retryTimer: NodeJS.Timeout | null = null;
@@ -273,11 +273,7 @@ class TraeUsageProvider {
 
   // ==================== 使用量统计 ====================
   private hasValidUsageData(pack: EntitlementPack): boolean {
-    const { quota } = pack.entitlement_base_info;
-    return quota.premium_model_fast_request_limit > 0 ||
-           quota.premium_model_slow_request_limit > 0 ||
-           quota.auto_completion_limit > 0 ||
-           quota.advanced_model_request_limit > 0;
+    return TraeUsageProvider.hasValidUsageData(pack);
   }
 
   private calculateUsageStats(): UsageStats {
@@ -305,55 +301,86 @@ class TraeUsageProvider {
 
   // ==================== Tooltip 构建 ====================
   private buildDetailedTooltip(): string {
-    if (!this.usageData || this.usageData.code === 1001) {
+    return TraeUsageProvider.buildTooltipFromData(this.usageData, new Date());
+  }
+
+  // 可测试的静态方法：根据数据构建 tooltip
+  public static buildTooltipFromData(usageData: ApiResponse | null, currentTime?: Date): string {
+    if (!usageData || usageData.code === 1001) {
       return `${t('statusBar.clickToConfigureSession')}\n\n${t('statusBar.clickInstructions')}`;
     }
 
     const sections: string[] = [];
-
-    const validPacks = this.usageData.user_entitlement_pack_list.filter(pack => 
-      this.hasValidUsageData(pack)
-    );
+    const validPacks = TraeUsageProvider.getValidPacks(usageData.user_entitlement_pack_list);
 
     if (validPacks.length === 0) {
       sections.push(t('tooltip.noValidPacks'));
     } else {
-      // 显示所有有效订阅包的Premium Fast Request信息
-      validPacks.forEach((pack, index) => {
-        const { usage, entitlement_base_info } = pack;
-        const { quota } = entitlement_base_info;
-        
-        // 获取订阅类型标识
-        const subscriptionType = this.getSubscriptionTypeLabel(pack);
-        
-        // Premium Fast Request使用情况(带进度条)
-        const fastUsed = usage.premium_model_fast_request_usage;
-        const fastLimit = quota.premium_model_fast_request_limit;
-        
-        if (fastLimit > 0) {
-          const percentage = Math.round((fastUsed / fastLimit) * 100);
-          const progressBarLength = 25;
-          const filledLength = Math.round((fastUsed / fastLimit) * progressBarLength);
-          const progressBar = '█'.repeat(filledLength) + '░'.repeat(progressBarLength - filledLength);
-          
-          // 添加订阅标题（如果有多个订阅）
-          if (validPacks.length > 1) {
-            sections.push(`${subscriptionType} (${fastUsed}/${fastLimit})  Expire: ${formatTimestamp(entitlement_base_info.end_time)}`);
-          }
-          
-          // sections.push(`Expire: ${formatTimestamp(entitlement_base_info.end_time)}`);
-          sections.push(`[${progressBar}] ${percentage}%`);
-          
-          // 如果不是最后一个订阅，添加分隔线
-          if (index < validPacks.length - 1) {
-            sections.push('');
-          }
-        }
-      });
+      const packSections = TraeUsageProvider.buildPackSections(validPacks);
+      sections.push(...packSections);
     }
+
+    // 添加更新时间
+    const timeSection = TraeUsageProvider.buildTimeSection(currentTime);
+    sections.push('');
+    sections.push(timeSection);
+
+    return sections.join('\n');
+  }
+
+  // 获取有效的订阅包
+  public static getValidPacks(packList: EntitlementPack[]): EntitlementPack[] {
+    return packList.filter(pack => TraeUsageProvider.hasValidUsageData(pack));
+  }
+
+  // 构建订阅包信息段落
+  public static buildPackSections(validPacks: EntitlementPack[]): string[] {
+    const sections: string[] = [];
     
-    // 最近更新时间 - 移到右下角，添加时间图标
-    const now = new Date();
+    validPacks.forEach((pack, index) => {
+      const { usage, entitlement_base_info } = pack;
+      const { quota } = entitlement_base_info;
+      
+      // 获取订阅类型标识
+      const subscriptionType = TraeUsageProvider.getSubscriptionTypeLabel(pack);
+      
+      // Premium Fast Request使用情况(带进度条)
+      const fastUsed = usage.premium_model_fast_request_usage;
+      const fastLimit = quota.premium_model_fast_request_limit;
+      
+      if (fastLimit > 0) {
+        const progressInfo = TraeUsageProvider.buildProgressBar(fastUsed, fastLimit);
+        
+        // 添加订阅标题（如果有多个订阅）
+        if (validPacks.length > 1) {
+          sections.push(`${subscriptionType} (${fastUsed}/${fastLimit})  Expire: ${formatTimestamp(entitlement_base_info.end_time)}`);
+        }
+        
+        sections.push(`[${progressInfo.progressBar}] ${progressInfo.percentage}%`);
+        
+        // 如果不是最后一个订阅，添加分隔线
+        if (index < validPacks.length - 1) {
+          sections.push('');
+        }
+      }
+    });
+
+    return sections;
+  }
+
+  // 构建进度条
+  public static buildProgressBar(used: number, limit: number): { progressBar: string; percentage: number } {
+    const percentage = Math.round((used / limit) * 100);
+    const progressBarLength = 25;
+    const filledLength = Math.round((used / limit) * progressBarLength);
+    const progressBar = '█'.repeat(filledLength) + '░'.repeat(progressBarLength - filledLength);
+    
+    return { progressBar, percentage };
+  }
+
+  // 构建时间信息段落
+  public static buildTimeSection(currentTime?: Date): string {
+    const now = currentTime || new Date();
     const updateTime = now.toLocaleString('zh-CN', {
       month: '2-digit',
       day: '2-digit',
@@ -362,13 +389,20 @@ class TraeUsageProvider {
       hour12: false
     }).replace(/\/(\d{2})\/(\d{2})/, '$1/$2').replace(/, /, ' ');
     
-    sections.push('');
-    sections.push(`${' '.repeat(50)}🕐 ${updateTime}`);
-    return sections.join('\n');
+    return `${' '.repeat(50)}🕐 ${updateTime}`;
+  }
+
+  // 检查订阅包是否有有效的使用数据
+  public static hasValidUsageData(pack: EntitlementPack): boolean {
+    const { quota } = pack.entitlement_base_info;
+    return quota.premium_model_fast_request_limit > 0 || 
+           quota.premium_model_slow_request_limit > 0 || 
+           quota.auto_completion_limit > 0 || 
+           quota.advanced_model_request_limit > 0;
   }
 
   // 获取订阅类型标签
-  private getSubscriptionTypeLabel(pack: EntitlementPack): string {
+  public static getSubscriptionTypeLabel(pack: EntitlementPack): string {
     const { entitlement_base_info } = pack;
     
     // 根据product_type判断订阅类型
