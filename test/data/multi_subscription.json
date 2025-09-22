@@ -1,4 +1,5 @@
-{   "mark": "PRO订阅接近过期，额外订阅100次请求，当前同时有两份订阅",
+{
+    "mark": "PRO订阅接近过期，额外订阅100次请求，当前同时有两份订阅",
     "is_pay_freshman": false,
     "user_entitlement_pack_list":
     [

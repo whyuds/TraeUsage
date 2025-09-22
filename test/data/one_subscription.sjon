@@ -1,0 +1,58 @@
+{
+    "mark": "只有PRO订阅",
+    "is_pay_freshman": false,
+    "user_entitlement_pack_list":
+    [
+        {
+            "entitlement_base_info":
+            {
+                "charge_amount": 0,
+                "currency": 0,
+                "end_time": 1760956256,
+                "entitlement_id": "3560409091",
+                "product_extra":
+                {
+                    "subscription_extra":
+                    {
+                        "period_type": 0,
+                        "quota":
+                        {
+                            "advanced_model_request_limit": -1,
+                            "auto_completion_limit": -1,
+                            "premium_model_fast_request_limit": 600,
+                            "premium_model_slow_request_limit": -1
+                        }
+                    }
+                },
+                "product_type": 1,
+                "quota":
+                {
+                    "advanced_model_request_limit": -1,
+                    "auto_completion_limit": -1,
+                    "premium_model_fast_request_limit": 600,
+                    "premium_model_slow_request_limit": -1
+                },
+                "start_time": 1758364256,
+                "user_id": "7542036017433396230"
+            },
+            "expire_time": 0,
+            "is_last_period": false,
+            "next_billing_time": 1760869856,
+            "source_id": "3545660419",
+            "status": 1,
+            "usage":
+            {
+                "advanced_model_amount": 2,
+                "advanced_model_request_usage": 2,
+                "auto_completion_amount": 53,
+                "auto_completion_usage": 53,
+                "is_flash_consuming": true,
+                "premium_model_fast_amount": 103.66,
+                "premium_model_fast_request_usage": 103,
+                "premium_model_slow_amount": 0,
+                "premium_model_slow_request_usage": 0
+            },
+            "yearly_expire_time": 0
+        }
+    ]
+}
