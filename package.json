@@ -87,6 +87,7 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
+    "test:unit": "npm run compile && node ./src/test/buildDetailedTooltip.test.js",
     "package": "node esbuild.js"
   },
   "devDependencies": {
