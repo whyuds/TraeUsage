@@ -351,10 +351,9 @@ export class TraeUsageProvider {
       if (fastLimit > 0) {
         const progressInfo = TraeUsageProvider.buildProgressBar(fastUsed, fastLimit);
         
-        // 添加订阅标题（如果有多个订阅）
-        if (validPacks.length > 1) {
-          sections.push(`${subscriptionType} (${fastUsed}/${fastLimit})  Expire: ${formatTimestamp(entitlement_base_info.end_time)}`);
-        }
+        // Add subscription summary header
+        const header = `${subscriptionType} (${fastUsed}/${fastLimit})  Expire: ${formatTimestamp(entitlement_base_info.end_time)}`;
+        sections.push(header);
         
         sections.push(`[${progressInfo.progressBar}] ${progressInfo.percentage}%`);
         
@@ -768,3 +767,4 @@ interface UsageStats {
 }
 
 export function deactivate() {}
+
