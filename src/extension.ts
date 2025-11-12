@@ -286,7 +286,7 @@ export class TraeUsageProvider {
     }
 
     this.usageData.user_entitlement_pack_list.forEach(pack => {
-      const usage = pack.usage.premium_model_fast_request_usage;
+      const usage = pack.usage.premium_model_fast_amount;
       const limit = pack.entitlement_base_info.quota.premium_model_fast_request_limit;
       
       if (limit > 0) {
@@ -345,7 +345,7 @@ export class TraeUsageProvider {
       const subscriptionType = TraeUsageProvider.getSubscriptionTypeLabel(pack);
       
       // Premium Fast Request使用情况(带进度条)
-      const fastUsed = usage.premium_model_fast_request_usage;
+      const fastUsed = usage.premium_model_fast_amount;
       const fastLimit = quota.premium_model_fast_request_limit;
       
       if (fastLimit > 0) {
