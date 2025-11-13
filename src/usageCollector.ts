@@ -39,6 +39,7 @@ export class UsageDetailCollector {
 
     const authToken = await this.getAuthToken(sessionId);
     if (!authToken) {
+      vscode.window.showErrorMessage('认证失败：无法获取Token，请检查Session ID是否正确');
       return;
     }
 
@@ -257,6 +258,15 @@ export class UsageDetailCollector {
       return result;
     } catch (error) {
       logWithTime(t('usageCollector.getTokenFailed', { error: String(error) }));
+      // 添加用户友好的错误提示
+      vscode.window.showErrorMessage(
+        '认证失败：无法获取Token，请检查Session ID是否正确或网络连接',
+        '更新Session ID'
+      ).then(selection => {
+        if (selection === '更新Session ID') {
+          vscode.commands.executeCommand('traeUsage.updateSession');
+        }
+      });
       return null;
     }
   }

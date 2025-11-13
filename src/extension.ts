@@ -139,13 +139,14 @@ export class TraeUsageProvider {
   private clickCount = 0;
   private isRefreshing = false;
   private isManualRefresh = false;
+  private isAuthFailed = false;  // 新增：标识认证失败状态
   private usageDetailCollector: UsageDetailCollector;
-  private dashboardGenerator: UsageDashboardGenerator;
+  private usageDashboardGenerator: UsageDashboardGenerator;
 
   constructor(private context: vscode.ExtensionContext) {
     this.statusBarItem = this.createStatusBarItem();
     this.usageDetailCollector = new UsageDetailCollector(context);
-    this.dashboardGenerator = new UsageDashboardGenerator(context);
+    this.usageDashboardGenerator = new UsageDashboardGenerator(context);
     
     this.initialize();
   }
@@ -155,7 +156,7 @@ export class TraeUsageProvider {
   }
 
   public async showUsageDashboard(): Promise<void> {
-    await this.dashboardGenerator.showDashboard();
+    await this.usageDashboardGenerator.showDashboard();
   }
 
   public showOutput(): void {
@@ -215,6 +216,7 @@ export class TraeUsageProvider {
   refresh(): void {
     this.isManualRefresh = true;
     this.isRefreshing = true;
+    this.isAuthFailed = false;  // 清除认证失败状态
     this.setLoadingState();
     this.clearCache();
     this.fetchUsageData();
@@ -234,6 +236,17 @@ export class TraeUsageProvider {
 
   // ==================== 状态栏更新 ====================
   private updateStatusBar(): void {
+    // 如果正在刷新或认证失败，显示相应状态
+    if (this.isRefreshing) {
+      this.setLoadingState();
+      return;
+    }
+
+    if (this.isAuthFailed) {
+      this.showAuthFailedStatus();
+      return;
+    }
+
     if (!this.usageData || this.usageData.code === 1001) {
       const sessionId = this.getSessionId();
       if (!sessionId) {
@@ -256,11 +269,20 @@ export class TraeUsageProvider {
     this.statusBarItem.tooltip = `${t('statusBar.clickToConfigureSession')}\n\n${t('statusBar.clickInstructions')}`;
   }
 
+  private showAuthFailedStatus(): void {
+    this.statusBarItem.text = '⚠️ 认证失败';
+    this.statusBarItem.color = '#ff6b6b'; // 红色提示
+    this.statusBarItem.tooltip = `认证失败：Session ID可能无效或已过期\n请点击状态栏重新配置Session ID\n\n${t('statusBar.clickInstructions')}`;
+  }
+
   private showUsageStatus(stats: UsageStats): void {
     const { totalUsage, totalLimit } = stats;
     const remaining = totalLimit - totalUsage;
     
-    this.statusBarItem.text = `⚡ Fast: ${totalUsage}/${totalLimit} (${t('statusBar.remaining', { remaining: remaining.toString() })})`;
+    // 只保留一位小数
+    const remainingFormatted = remaining.toFixed(1);
+    
+    this.statusBarItem.text = `⚡ Fast: ${totalUsage}/${totalLimit} (${t('statusBar.remaining', { remaining: remainingFormatted })})`;
     this.statusBarItem.color = undefined;
     this.statusBarItem.tooltip = this.buildDetailedTooltip();
   }
@@ -430,7 +452,7 @@ export class TraeUsageProvider {
 
   // ==================== API 调用 ====================
   private async getTokenFromSession(sessionId: string, retryCount = 0): Promise<string | null> {
-    return this.apiService.getTokenFromSession(sessionId, retryCount);
+    return this.apiService.getTokenFromSession(sessionId, retryCount, this.isManualRefresh);
   }
 
   async fetchUsageData(retryCount = 0): Promise<void> {
@@ -467,6 +489,7 @@ export class TraeUsageProvider {
 
   private async handleApiResponse(data: ApiResponse): Promise<void> {
     this.usageData = data;
+    this.isAuthFailed = false;  // 清除认证失败状态
     logWithTime('更新使用量数据');
     
     // 使用apiService的统一错误处理
@@ -483,6 +506,7 @@ export class TraeUsageProvider {
 
   private handleTokenExpired(): void {
     logWithTime('Token已失效(code: 1001)，清除缓存');
+    this.isAuthFailed = true;  // 设置认证失败状态
     this.clearCache();
     
     if (this.isManualRefresh) {
@@ -497,6 +521,7 @@ export class TraeUsageProvider {
 
   // ==================== 错误处理 ====================
   private handleNoSessionId(): void {
+    this.isAuthFailed = false;  // 清除认证失败状态
     if (this.isManualRefresh) {
       this.showSetSessionMessage();
       this.resetRefreshState();
@@ -506,6 +531,7 @@ export class TraeUsageProvider {
   }
 
   private handleNoToken(): void {
+    this.isAuthFailed = true;  // 设置认证失败状态
     this.resetRefreshState();
     this.updateStatusBar();
     
@@ -518,6 +544,28 @@ export class TraeUsageProvider {
 
   private handleFetchError(error: any, retryCount: number): void {
     logWithTime(`获取使用量数据失败 (尝试 ${retryCount + 1}/${MAX_RETRY_COUNT}): ${error}`);
+    
+    // 处理401认证失败情况
+    if (error.response?.status === 401) {
+      this.isAuthFailed = true;
+      this.resetRefreshState();
+      this.updateStatusBar();
+      
+      if (this.isManualRefresh) {
+        vscode.window.showErrorMessage(
+          '认证失败：Session ID可能无效或已过期，请更新Session ID', 
+          '更新Session ID'
+        ).then(selection => {
+          if (selection === '更新Session ID') {
+            vscode.commands.executeCommand('traeUsage.updateSession');
+          }
+        });
+      } else {
+        // 自动刷新时显示错误提示，但不阻塞流程
+        vscode.window.showErrorMessage('Trae Usage: 认证失败，请手动更新Session ID');
+      }
+      return;
+    }
     
     if (this.isManualRefresh) {
       if (this.apiService.isRetryableError(error)) {

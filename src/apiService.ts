@@ -36,9 +36,10 @@ export class ApiService {
    * 获取用户Token（带缓存功能）
    * @param sessionId 会话ID
    * @param retryCount 重试次数
+   * @param isManualRefresh 是否为手动刷新
    * @returns Promise<string | null>
    */
-  public async getTokenFromSession(sessionId: string, retryCount = 0): Promise<string | null> {
+  public async getTokenFromSession(sessionId: string, retryCount = 0, isManualRefresh = false): Promise<string | null> {
     // 检查缓存
     if (this.cachedToken && this.cachedSessionId === sessionId) {
       return this.cachedToken;
@@ -65,7 +66,7 @@ export class ApiService {
       this.cachedSessionId = sessionId;
       return this.cachedToken;
     } catch (error) {
-      return this.handleTokenError(error, sessionId, retryCount, currentHost);
+      return this.handleTokenError(error, sessionId, retryCount, currentHost, isManualRefresh);
     }
   }
 
@@ -112,9 +113,29 @@ export class ApiService {
     error: any, 
     sessionId: string, 
     retryCount: number, 
-    currentHost: string
+    currentHost: string,
+    isManualRefresh: boolean = false
   ): Promise<string | null> {
     logWithTime(`获取Token失败 (尝试 ${retryCount + 1}/${MAX_RETRY_COUNT}): ${error.code}, ${error.message}`);
+    
+    // 处理401认证失败情况
+    if (error.response?.status === 401) {
+      logWithTime('检测到401认证失败，可能是sessionId无效或已过期');
+      if (isManualRefresh) {
+        vscode.window.showErrorMessage(
+          '认证失败：Session ID可能无效或已过期，请更新Session ID', 
+          '更新Session ID'
+        ).then(selection => {
+          if (selection === '更新Session ID') {
+            vscode.commands.executeCommand('traeUsage.updateSession');
+          }
+        });
+      } else {
+        // 自动刷新时显示错误提示，但不阻塞流程
+        vscode.window.showErrorMessage('Trae Usage: 认证失败，请手动更新Session ID');
+      }
+      return null;
+    }
     
     // 核心修改：处理Token错误（支持双向切换主机）
     if (this.isTokenError(error)) {
@@ -127,7 +148,11 @@ export class ApiService {
         return this.getTokenFromSession(sessionId, 0); // 重置重试次数，重试获取Token
       } else {
         // 已切换过主机仍失败：通知用户无法获取Token
-        vscode.window.showErrorMessage(t('messages.cannotGetToken'));
+        if (isManualRefresh) {
+          vscode.window.showErrorMessage(t('messages.cannotGetToken'));
+        } else {
+          vscode.window.showErrorMessage('Trae Usage: 无法获取认证Token，请检查网络连接或手动更新Session ID');
+        }
         return null;
       }
     }
@@ -141,7 +166,11 @@ export class ApiService {
     
     // 重试后网络仍有问题（不变）
     if (this.isRetryableError(error) && retryCount >= MAX_RETRY_COUNT) {
-      vscode.window.showErrorMessage(t('messages.networkUnstable'));
+      if (isManualRefresh) {
+        vscode.window.showErrorMessage(t('messages.networkUnstable'));
+      } else {
+        vscode.window.showErrorMessage('Trae Usage: 网络不稳定，请稍后重试');
+      }
     }
     
     return null;
