@@ -1,8 +1,8 @@
 {
   "name": "trae-usage-monitor",
-  "displayName": "Trae Usage",
+  "displayName": "Trae Usage Reborn",
   "description": "Monitor Trae AI usage statistics in real-time",
-  "version": "1.3.3",
+  "version": "1.3.4-SNAPSHOT",
   "publisher": "whyuds",
   "repository": {
     "type": "git",
@@ -14,6 +14,51 @@
   },
   "categories": [
     "Other"
+  ],
+  "keywords": [
+    "Trae",
+    "trae",
+    "Trae AI",
+    "AI",
+    "ai",
+    "人工智能",
+    "Usage",
+    "usage",
+    "使用量",
+    "用量",
+    "用量统计",
+    "配额",
+    "额度",
+    "Monitor",
+    "monitor",
+    "监控",
+    "统计",
+    "仪表板",
+    "看板",
+    "Token",
+    "token",
+    "令牌",
+    "JWT",
+    "Session",
+    "session",
+    "Session ID",
+    "会话",
+    "Cloud-IDE",
+    "Cloud IDE",
+    "云IDE",
+    "VSCode Extension",
+    "extension",
+    "扩展",
+    "插件",
+    "Usage Details",
+    "使用详情",
+    "Entitlement",
+    "权益",
+    "订阅",
+    "套餐",
+    "木瞳",
+    "mtpupil",
+    "MTpupil"
   ],
   "icon": "img/logo_256.png",
   "activationEvents": [
@@ -48,7 +93,6 @@
         "icon": "$(output)"
       }
     ],
-
     "configuration": {
       "title": "%configuration.title%",
       "properties": {
