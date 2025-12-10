@@ -1,6 +1,6 @@
 **/node_modules/**
 /.idea/
-trae-usage-monitor-*.vsix
+*.vsix
 out/
 trae-usage-server/
 .vscode-test/

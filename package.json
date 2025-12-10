@@ -1,12 +1,12 @@
 {
-  "name": "trae-usage-monitor",
+  "name": "trae-usage-reborn",
   "displayName": "Trae Usage Reborn",
   "description": "Monitor Trae AI usage statistics in real-time",
-  "version": "1.3.4-SNAPSHOT",
-  "publisher": "whyuds",
+  "version": "1.3.4",
+  "publisher": "MTpupil",
   "repository": {
     "type": "git",
-    "url": "https://github.com/whyuds/TraeUsage.git"
+    "url": "https://github.com/mtpupil/TraeUsage.git"
   },
   "license": "MIT",
   "engines": {
