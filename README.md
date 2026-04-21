@@ -1,6 +1,6 @@
 # Trae Usage Monitor
 
-由于原项目出现本人无法使用是问题，并发现有其他用户也遇到了相同问题，因此本人 fork 了原项目，本意是为了帮助优先，但是反馈问题和提交 pr，等待好久无人回应，所以单开一个版本。
+由于原项目出现本人无法使用的问题，并发现有其他用户也遇到了相同问题，因此本人 fork 了原项目，本意是为了帮助优先，但是反馈问题和提交 pr，等待好久无人回应，所以单开一个版本。
 
 一个 VSCode 扩展，用于实时监控 Trae AI 的使用量统计。
 
@@ -57,8 +57,8 @@
 
 如果您在使用过程中遇到问题或有功能建议，欢迎访问我们的 GitHub 项目页面：
 
-🔗 **原项目地址**：[https://github.com/whyuds/TraeUsage](https://github.com/whyuds/TraeUsage)
-🔗 **当前项目地址**：[https://github.com/mtpupil/TraeUsage](https://github.com/mtpupil/TraeUsage)
+🔗 **原项目地址**：<https://github.com/whyuds/TraeUsage>
+🔗 **当前项目地址**：<https://github.com/mtpupil/TraeUsage>
 
 💬 **问题反馈**：如有问题请在 GitHub 上提交[Issues](https://github.com/mtpupil/TraeUsage/issues)
 

@@ -11,54 +11,7 @@ import {
   formatTimestamp,
 } from "./utils";
 import { getApiService } from "./apiService";
-
-// ==================== 类型定义 ====================
-interface UsageData {
-  advanced_model_amount: number;
-  advanced_model_request_usage: number;
-  auto_completion_amount: number;
-  auto_completion_usage: number;
-  is_flash_consuming: boolean;
-  premium_model_fast_amount: number;
-  premium_model_fast_request_usage: number;
-  premium_model_slow_amount: number;
-  premium_model_slow_request_usage: number;
-}
-
-interface QuotaData {
-  advanced_model_request_limit: number;
-  auto_completion_limit: number;
-  premium_model_fast_request_limit: number;
-  premium_model_slow_request_limit: number;
-}
-
-interface EntitlementPack {
-  entitlement_base_info: {
-    end_time: number;
-    quota: QuotaData;
-    user_id: string;
-    start_time: number;
-    product_type?: number;
-    entitlement_id?: string;
-    charge_amount?: number;
-    currency?: number;
-    product_extra?: any;
-  };
-  usage: UsageData;
-  status: number;
-  expire_time?: number;
-  is_last_period?: boolean;
-  next_billing_time?: number;
-  source_id?: string;
-  yearly_expire_time?: number;
-}
-
-export interface ApiResponse {
-  code?: number;
-  message?: string;
-  is_pay_freshman: boolean;
-  user_entitlement_pack_list: EntitlementPack[];
-}
+import { ApiResponse, EntitlementPack, UsageData, QuotaData } from "./types";
 
 export interface TokenResponse {
   ResponseMetadata: {
@@ -288,18 +241,38 @@ export class TraeUsageProvider {
   }
 
   private showUsageStatus(stats: UsageStats): void {
-    const { totalUsage, totalLimit } = stats;
-    const remaining = totalLimit - totalUsage;
+    // 找到活跃的订阅包（有基础额度的）
+    const activePack = this.usageData?.user_entitlement_pack_list.find(pack => 
+      pack.entitlement_base_info.quota.basic_usage_limit > 0 && pack.status === 1
+    );
 
-    // 只保留一位小数
-    const remainingFormatted = remaining.toFixed(1);
-
-    this.statusBarItem.text = `⚡ Fast: ${totalUsage}/${totalLimit} (${t(
-      "statusBar.remaining",
-      { remaining: remainingFormatted }
-    )})`;
-    this.statusBarItem.color = undefined;
-    this.statusBarItem.tooltip = this.buildDetailedTooltip();
+    if (activePack) {
+      const basicUsed = activePack.usage.basic_usage_amount;
+      const basicLimit = activePack.entitlement_base_info.quota.basic_usage_limit;
+      const bonusUsed = activePack.usage.bonus_usage_amount;
+      const bonusLimit = activePack.entitlement_base_info.quota.bonus_usage_limit;
+      
+      // 获取订阅类型名称
+      const subscriptionType = TraeUsageProvider.getSubscriptionTypeLabel(activePack);
+      
+      // 构建状态栏文本
+      let statusText = `⚡ ${subscriptionType}: `;
+      
+      if (basicUsed < basicLimit) {
+        // 基础额度未用完
+        statusText += `Basic: ${basicUsed.toFixed(2)}/${basicLimit}`;
+      } else {
+        // 基础额度已用完，显示基础和奖励额度
+        statusText += `Basic: ${basicUsed.toFixed(2)}/${basicLimit} + Bonus: ${bonusUsed.toFixed(2)}`;
+      }
+      
+      this.statusBarItem.text = statusText;
+      this.statusBarItem.color = undefined;
+      this.statusBarItem.tooltip = this.buildDetailedTooltip();
+    } else {
+      // 没有活跃的订阅包
+      this.showNoActiveSubscriptionStatus();
+    }
   }
 
   private showNoActiveSubscriptionStatus(): void {
@@ -325,9 +298,10 @@ export class TraeUsageProvider {
     }
 
     this.usageData.user_entitlement_pack_list.forEach((pack) => {
-      const usage = pack.usage.premium_model_fast_amount;
-      const limit =
-        pack.entitlement_base_info.quota.premium_model_fast_request_limit;
+      // 计算Token使用量（basic_usage + bonus_usage）
+      const usage = pack.usage.basic_usage_amount + pack.usage.bonus_usage_amount;
+      // 计算总限额（basic_usage_limit + bonus_usage_limit）
+      const limit = pack.entitlement_base_info.quota.basic_usage_limit + pack.entitlement_base_info.quota.bonus_usage_limit;
 
       if (limit > 0) {
         totalUsage += usage;
@@ -391,30 +365,82 @@ export class TraeUsageProvider {
       // 获取订阅类型标识
       const subscriptionType = TraeUsageProvider.getSubscriptionTypeLabel(pack);
 
-      // Premium Fast Request使用情况(带进度条)
-      const fastUsed = usage.premium_model_fast_amount;
-      const fastLimit = quota.premium_model_fast_request_limit;
+      // 显示订阅包标题
+      const header = `${subscriptionType} ${usage.is_flash_consuming ? '(Consuming)' : ''}  Expire: ${formatTimestamp(
+        entitlement_base_info.end_time
+      )}`;
+      sections.push(header);
 
-      if (fastLimit > 0) {
-        const progressInfo = TraeUsageProvider.buildProgressBar(
-          fastUsed,
-          fastLimit
-        );
-
-        // Add subscription summary header
-        const header = `${subscriptionType} (${fastUsed}/${fastLimit})  Expire: ${formatTimestamp(
-          entitlement_base_info.end_time
-        )}`;
-        sections.push(header);
-
-        sections.push(
-          `[${progressInfo.progressBar}] ${progressInfo.percentage}%`
-        );
-
-        // 如果不是最后一个订阅，添加分隔线
-        if (index < validPacks.length - 1) {
-          sections.push("");
+      // 显示基础额度
+      const basicUsed = usage.basic_usage_amount;
+      const basicLimit = quota.basic_usage_limit;
+      sections.push(`Basic: $${basicUsed.toFixed(2)} / $${basicLimit.toFixed(2)}`);
+      
+      // 构建基础额度进度条
+      const basicProgressInfo = TraeUsageProvider.buildProgressBar(
+        basicUsed,
+        basicLimit
+      );
+      // 使用▒符号表示基础额度进度
+      let basicProgressBar = basicProgressInfo.progressBar.replace(/█/g, "▒");
+      
+      // 调试：显示计算过程
+      console.log(`Pack: ${subscriptionType}`);
+      console.log(`Basic Used: ${basicUsed}, Basic Limit: ${basicLimit}`);
+      console.log(`Filled Length: ${Math.round((basicUsed / basicLimit) * 25)}`);
+      console.log(`Progress Bar: [${basicProgressBar}]`);
+      
+      // 如果有基础额度且基础额度已用完，显示组合进度条
+      if (pack.entitlement_base_info.quota.basic_usage_limit > 0 && basicUsed >= basicLimit) {
+        const bonusUsed = usage.bonus_usage_amount;
+        const bonusLimit = quota.bonus_usage_limit;
+        sections.push(`Bonus: +$${bonusUsed.toFixed(2)}`);
+        
+        // 构建组合进度条：根据总使用量的百分比显示
+        if (bonusUsed > 0) {
+          // 对于动态奖励额度，使用总使用量作为参考
+          const totalUsed = basicUsed + bonusUsed;
+          const progressBarLength = 25;
+          
+          // 计算基础部分的长度（固定为基础额度占比）
+          const basicPercentage = basicUsed / totalUsed;
+          const bonusPercentage = bonusUsed / totalUsed;
+          const basicLength = Math.round(basicPercentage * progressBarLength);
+          const bonusLength = Math.max(1, Math.round(bonusPercentage * progressBarLength)); // 至少显示1个字符
+          
+          // 确保总长度不超过进度条长度
+          const totalLength = basicLength + bonusLength;
+          const adjustLength = totalLength - progressBarLength;
+          let finalBasicLength = basicLength;
+          let finalBonusLength = bonusLength;
+          
+          if (adjustLength > 0) {
+            // 调整长度，优先减少奖励部分
+            finalBonusLength = Math.max(1, bonusLength - adjustLength);
+          }
+          
+          // 构建组合进度条：基础额度（▒） + 空格 + 奖励额度（█）
+          const basicPart = "▒".repeat(finalBasicLength);
+          const bonusPart = "█".repeat(finalBonusLength);
+          const combinedProgressBar = `${basicPart} ${bonusPart}`;
+          
+          sections.push(`[${combinedProgressBar}]`);
+          // 调试：显示组合进度条
+          console.log(`Total Used: ${totalUsed}`);
+          console.log(`Basic Length: ${finalBasicLength}, Bonus Length: ${finalBonusLength}`);
+          console.log(`Combined Progress Bar: [${combinedProgressBar}]`);
+        } else {
+          // 只有基础额度进度条
+          sections.push(`[${basicProgressBar}]`);
         }
+      } else {
+        // 非Pro计划或基础额度未用完，只显示基础额度进度条
+        sections.push(`[${basicProgressBar}]`);
+      }
+
+      // 如果不是最后一个订阅，添加分隔线
+      if (index < validPacks.length - 1) {
+        sections.push("");
       }
     });
 
@@ -426,9 +452,9 @@ export class TraeUsageProvider {
     used: number,
     limit: number
   ): { progressBar: string; percentage: number } {
-    const percentage = Math.round((used / limit) * 100);
+    const percentage = Math.min(100, Math.round((used / limit) * 100));
     const progressBarLength = 25;
-    const filledLength = Math.round((used / limit) * progressBarLength);
+    const filledLength = Math.min(progressBarLength, Math.round((used / limit) * progressBarLength));
     const progressBar =
       "█".repeat(filledLength) + "░".repeat(progressBarLength - filledLength);
 
@@ -456,6 +482,8 @@ export class TraeUsageProvider {
   public static hasValidUsageData(pack: EntitlementPack): boolean {
     const { quota } = pack.entitlement_base_info;
     return (
+      quota.basic_usage_limit > 0 ||
+      quota.bonus_usage_limit > 0 ||
       quota.premium_model_fast_request_limit > 0 ||
       quota.premium_model_slow_request_limit > 0 ||
       quota.auto_completion_limit > 0 ||

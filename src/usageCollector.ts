@@ -93,8 +93,18 @@ export class UsageDetailCollector {
       // 增量收集：从上次更新时间前1小时开始
       start_time = existingData.last_update_time - 3600; // 减去1小时
     } else {
-      // 首次收集：从订阅开始时间收集
-      start_time = subscriptionRange.start_time;
+      // 首次收集：从过去7天开始收集，这样可以覆盖更多记录
+      start_time = now - (7 * 24 * 60 * 60); // 7天前
+    }
+    
+    // 确保开始时间不早于订阅开始时间，但如果订阅开始时间在未来，则使用过去7天
+    const subscriptionStart = subscriptionRange.start_time;
+    if (subscriptionStart > now) {
+      // 订阅尚未开始，使用过去7天
+      start_time = now - (7 * 24 * 60 * 60);
+    } else {
+      // 订阅已开始，使用订阅开始时间
+      start_time = Math.max(start_time, subscriptionStart);
     }
     
     return { start_time, end_time };

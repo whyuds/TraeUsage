@@ -430,6 +430,7 @@ export class ApiService {
           end_time,
           page_size: pageSize,
           page_num: pageNum,
+          usage_type: [5, 6], // 添加使用类型参数
         };
         const headers = {
           authorization: `Cloud-IDE-JWT ${authToken}`,
@@ -447,6 +448,10 @@ export class ApiService {
             timeout: 10000,
           }
         );
+
+        // 调试：显示API返回的完整数据
+        logWithTime(`API返回数据: ${JSON.stringify(response.data)}`);
+        logWithTime(`请求参数: start_time=${start_time}, end_time=${end_time}, page_num=${pageNum}, page_size=${pageSize}`);
 
         return response.data;
       }, `获取第${pageNum}页使用详情`);
