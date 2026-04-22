@@ -4,6 +4,16 @@
 
 一个 VSCode 扩展，用于实时监控 Trae AI 的使用量统计。
 
+## 版本更新
+
+### v1.4.0 (2026-04-21)
+
+- **计费方式更新**：适配官方从次数计费改为 Token 量计费的变更
+- **状态栏显示优化**：智能显示订阅计划的基础额度和奖励额度使用情况
+- **进度条改进**：区分基础额度（▒）和奖励额度（█）的进度条符号
+- **使用详情收集**：修复使用详情收集功能，支持新的 API 接口
+- **时间范围计算**：优化时间范围计算逻辑，确保能正确收集历史使用数据
+
 ### 状态栏
 
 <div align="center">
@@ -43,6 +53,8 @@
 4. 点击 Chrome 扩展图标，自动复制 Session ID 至粘贴板
 5. 返回 Trae，Trae Usage 扩展会自动识别粘贴板并配置 Session ID
 6. Ctrl+Shift+P 打开命令面板，输入 TraeUsage: Collect Usage Details
+
+注意：如果原作者提供的浏览器插件不管用，请自行使用F12工具，在请求中复制请求头Cookie里面的X-Cloudide-Session。例如：X-Cloudide-Session=HfM3FZusMzX2we20bjiXPpvwqcUgr\_zIdpy5-zKFGY=.18a409a3e99e195e; 然后返回Trae
 
 ### 3. 查看使用量
 
