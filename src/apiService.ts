@@ -1,17 +1,17 @@
-import * as vscode from 'vscode';
-import axios from 'axios';
-import { logWithTime } from './utils';
-import { TokenResponse } from './extension';
-import { t } from './i18n';
-import { UsageDetailResponse } from './types';
+import * as vscode from "vscode";
+import axios from "axios";
+import { logWithTime } from "./utils";
+import { TokenResponse } from "./extension";
+import { t } from "./i18n";
+import { UsageDetailResponse } from "./types";
 
 // 常量定义
-const DEFAULT_HOST = 'https://api-sg-central.trae.ai';
-const FALLBACK_HOST = 'https://api-us-east.trae.ai';
+const DEFAULT_HOST = "https://api-us-east.trae.ai";
+const FALLBACK_HOST = "https://api-sg-central.trae.ai";
 const API_TIMEOUT = 3000;
 const MAX_RETRY_COUNT = 5;
 const RETRY_DELAY = 1000;
-const TOKEN_ERROR_CODE = '20310';
+const TOKEN_ERROR_CODE = "20310";
 
 /**
  * 统一的API服务类，管理GetUserToken接口调用
@@ -39,34 +39,44 @@ export class ApiService {
    * @param isManualRefresh 是否为手动刷新
    * @returns Promise<string | null>
    */
-  public async getTokenFromSession(sessionId: string, retryCount = 0, isManualRefresh = false): Promise<string | null> {
+  public async getTokenFromSession(
+    sessionId: string,
+    retryCount = 0,
+    isManualRefresh = false
+  ): Promise<string | null> {
     // 检查缓存
     if (this.cachedToken && this.cachedSessionId === sessionId) {
       return this.cachedToken;
     }
 
     const currentHost = this.getHost();
-    
+
     try {
       const response = await axios.post<TokenResponse>(
         `${currentHost}/cloudide/api/v3/common/GetUserToken`,
         {},
         {
           headers: {
-            'Cookie': `X-Cloudide-Session=${sessionId}`,
-            'Host': new URL(currentHost).hostname,
-            'Content-Type': 'application/json'
+            Cookie: `X-Cloudide-Session=${sessionId}`,
+            Host: new URL(currentHost).hostname,
+            "Content-Type": "application/json",
           },
-          timeout: API_TIMEOUT
+          timeout: API_TIMEOUT,
         }
       );
 
-      logWithTime('更新Token');
+      logWithTime("更新Token");
       this.cachedToken = response.data.Result.Token;
       this.cachedSessionId = sessionId;
       return this.cachedToken;
     } catch (error) {
-      return this.handleTokenError(error, sessionId, retryCount, currentHost, isManualRefresh);
+      return this.handleTokenError(
+        error,
+        sessionId,
+        retryCount,
+        currentHost,
+        isManualRefresh
+      );
     }
   }
 
@@ -76,24 +86,31 @@ export class ApiService {
    * @param maxRetries 最大重试次数
    * @returns Promise<string | null>
    */
-  public async getTokenWithRetry(sessionId: string, maxRetries: number = MAX_RETRY_COUNT): Promise<string | null> {
-    return this.apiRequestWithRetry(async () => {
-      const currentHost = this.getHost();
-      const response = await axios.post<TokenResponse>(
-        `${currentHost}/cloudide/api/v3/common/GetUserToken`,
-        {},
-        {
-          headers: {
-            'Cookie': `X-Cloudide-Session=${sessionId}`,
-            'Host': new URL(currentHost).hostname,
-            'Content-Type': 'application/json'
-          },
-          timeout: API_TIMEOUT
-        }
-      );
+  public async getTokenWithRetry(
+    sessionId: string,
+    maxRetries: number = MAX_RETRY_COUNT
+  ): Promise<string | null> {
+    return this.apiRequestWithRetry(
+      async () => {
+        const currentHost = this.getHost();
+        const response = await axios.post<TokenResponse>(
+          `${currentHost}/cloudide/api/v3/common/GetUserToken`,
+          {},
+          {
+            headers: {
+              Cookie: `X-Cloudide-Session=${sessionId}`,
+              Host: new URL(currentHost).hostname,
+              "Content-Type": "application/json",
+            },
+            timeout: API_TIMEOUT,
+          }
+        );
 
-      return response.data.Result.Token;
-    }, '获取认证Token', maxRetries);
+        return response.data.Result.Token;
+      },
+      "获取认证Token",
+      maxRetries
+    );
   }
 
   /**
@@ -110,73 +127,84 @@ export class ApiService {
    * 处理Token获取错误
    */
   private async handleTokenError(
-    error: any, 
-    sessionId: string, 
-    retryCount: number, 
+    error: any,
+    sessionId: string,
+    retryCount: number,
     currentHost: string,
     isManualRefresh: boolean = false
   ): Promise<string | null> {
-    logWithTime(`获取Token失败 (尝试 ${retryCount + 1}/${MAX_RETRY_COUNT}): ${error.code}, ${error.message}`);
-    
+    logWithTime(
+      `获取Token失败 (尝试 ${retryCount + 1}/${MAX_RETRY_COUNT}): ${
+        error.code
+      }, ${error.message}`
+    );
+
     // 处理401认证失败情况
     if (error.response?.status === 401) {
-      logWithTime('检测到401认证失败，可能是sessionId无效或已过期');
+      logWithTime("检测到401认证失败，可能是sessionId无效或已过期");
       if (isManualRefresh) {
-        vscode.window.showErrorMessage(
-          '认证失败：Session ID可能无效或已过期，请更新Session ID', 
-          '更新Session ID'
-        ).then(selection => {
-          if (selection === '更新Session ID') {
-            vscode.commands.executeCommand('traeUsage.updateSession');
-          }
-        });
+        vscode.window
+          .showErrorMessage(
+            "认证失败：Session ID可能无效或已过期，请更新Session ID",
+            "更新Session ID"
+          )
+          .then((selection) => {
+            if (selection === "更新Session ID") {
+              vscode.commands.executeCommand("traeUsage.updateSession");
+            }
+          });
       } else {
         // 自动刷新时显示错误提示，但不阻塞流程
-        vscode.window.showErrorMessage('Trae Usage: 认证失败，请手动更新Session ID');
+        vscode.window.showErrorMessage(
+          "Trae Usage: 认证失败，请手动更新Session ID"
+        );
       }
       return null;
     }
-    
+
     // 核心修改：处理Token错误（支持双向切换主机）
     if (this.isTokenError(error)) {
       if (!this.hasSwitchedHost) {
         // 未切换过主机：切换到另一个主机（默认 ↔ 备用互切）
-        const otherHost = currentHost === DEFAULT_HOST ? FALLBACK_HOST : DEFAULT_HOST;
-        logWithTime(`检测到错误代码${TOKEN_ERROR_CODE}，尝试切换到备用主机: ${otherHost}`);
+        const otherHost =
+          currentHost === DEFAULT_HOST ? FALLBACK_HOST : DEFAULT_HOST;
+        logWithTime(
+          `检测到错误代码${TOKEN_ERROR_CODE}，尝试切换到备用主机: ${otherHost}`
+        );
         await this.setHost(otherHost); // 切换到另一个主机
         this.hasSwitchedHost = true; // 标记为已切换
         return this.getTokenFromSession(sessionId, 0); // 重置重试次数，重试获取Token
       } else {
         // 已切换过主机仍失败：通知用户无法获取Token
         if (isManualRefresh) {
-          vscode.window.showErrorMessage(t('messages.cannotGetToken'));
+          vscode.window.showErrorMessage(t("messages.cannotGetToken"));
         } else {
-          vscode.window.showErrorMessage('Trae Usage: 无法获取认证Token，请检查网络连接或手动更新Session ID');
+          vscode.window.showErrorMessage(
+            "Trae Usage: 无法获取认证Token，请检查网络连接或手动更新Session ID"
+          );
         }
         return null;
       }
     }
-    
+
     // 原有可重试错误逻辑（不变）
     if (this.isRetryableError(error) && retryCount < MAX_RETRY_COUNT) {
       logWithTime(`Token获取失败，将在1秒后进行第${retryCount + 1}次重试`);
-      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
       return this.getTokenFromSession(sessionId, retryCount + 1);
     }
-    
+
     // 重试后网络仍有问题（不变）
     if (this.isRetryableError(error) && retryCount >= MAX_RETRY_COUNT) {
       if (isManualRefresh) {
-        vscode.window.showErrorMessage(t('messages.networkUnstable'));
+        vscode.window.showErrorMessage(t("messages.networkUnstable"));
       } else {
-        vscode.window.showErrorMessage('Trae Usage: 网络不稳定，请稍后重试');
+        vscode.window.showErrorMessage("Trae Usage: 网络不稳定，请稍后重试");
       }
     }
-    
+
     return null;
   }
-
-
 
   /**
    * 带重试机制的通用API请求函数
@@ -187,7 +215,7 @@ export class ApiService {
     maxRetries: number = MAX_RETRY_COUNT
   ): Promise<T> {
     let lastError: any;
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const result = await requestFn();
@@ -197,37 +225,46 @@ export class ApiService {
         return result;
       } catch (error) {
         lastError = error;
-        logWithTime(`${operationName} 第${attempt}次尝试失败: ${String(error)}`);
-        
+        logWithTime(
+          `${operationName} 第${attempt}次尝试失败: ${String(error)}`
+        );
+
         if (attempt < maxRetries) {
           const delay = RETRY_DELAY * attempt; // 递增延迟
           logWithTime(`等待${delay}ms后进行第${attempt + 1}次重试`);
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
-    
-    throw new Error(`${operationName} 在${maxRetries}次重试后仍然失败: ${String(lastError)}`);
+
+    throw new Error(
+      `${operationName} 在${maxRetries}次重试后仍然失败: ${String(lastError)}`
+    );
   }
 
   /**
    * 检查是否是Token错误
    */
   private isTokenError(error: any): boolean {
-    return error?.response?.data?.ResponseMetadata?.Error?.Code === TOKEN_ERROR_CODE;
+    return (
+      error?.response?.data?.ResponseMetadata?.Error?.Code === TOKEN_ERROR_CODE
+    );
   }
 
   /**
    * 检查是否是可重试的错误
    */
   public isRetryableError(error: any): boolean {
-    return error && (
-      error.code === 'ECONNABORTED' || 
-      error.message?.includes('timeout') ||
-      error.code === 'ENOTFOUND' ||
-      error.code === 'ECONNRESET' ||
-      error.message?.includes('Failed to establish a socket connection to proxies') ||
-      error.message?.includes('proxy')
+    return (
+      error &&
+      (error.code === "ECONNABORTED" ||
+        error.message?.includes("timeout") ||
+        error.code === "ENOTFOUND" ||
+        error.code === "ECONNRESET" ||
+        error.message?.includes(
+          "Failed to establish a socket connection to proxies"
+        ) ||
+        error.message?.includes("proxy"))
     );
   }
 
@@ -237,15 +274,19 @@ export class ApiService {
    * @param operationName 操作名称
    * @param showUserMessage 是否显示用户消息
    */
-  public handleApiError(error: any, operationName: string, showUserMessage: boolean = false): void {
+  public handleApiError(
+    error: any,
+    operationName: string,
+    showUserMessage: boolean = false
+  ): void {
     const errorMessage = `${operationName}失败: ${String(error)}`;
     logWithTime(errorMessage);
-    
+
     if (showUserMessage) {
       if (this.isRetryableError(error)) {
-        vscode.window.showErrorMessage(t('messages.networkUnstable'));
+        vscode.window.showErrorMessage(t("messages.networkUnstable"));
       } else if (this.isTokenError(error)) {
-        vscode.window.showErrorMessage(t('messages.cannotGetToken'));
+        vscode.window.showErrorMessage(t("messages.cannotGetToken"));
       } else {
         vscode.window.showErrorMessage(`${operationName}失败，请稍后重试`);
       }
@@ -270,10 +311,16 @@ export class ApiService {
     if (response?.code === 1001) {
       logWithTime(`${operationName}: Token已失效(code: 1001)`);
       this.clearCache();
-      vscode.window.showErrorMessage(t('messages.tokenExpired'));
+      vscode.window.showErrorMessage(t("messages.tokenExpired"));
     } else if (response?.code) {
-      logWithTime(`${operationName}: API返回错误码 ${response.code}, 消息: ${response.message || 'Unknown error'}`);
-      vscode.window.showErrorMessage(`${operationName}失败: ${response.message || 'Unknown error'}`);
+      logWithTime(
+        `${operationName}: API返回错误码 ${response.code}, 消息: ${
+          response.message || "Unknown error"
+        }`
+      );
+      vscode.window.showErrorMessage(
+        `${operationName}失败: ${response.message || "Unknown error"}`
+      );
     }
   }
 
@@ -314,16 +361,16 @@ export class ApiService {
           {},
           {
             headers: {
-              'authorization': `Cloud-IDE-JWT ${authToken}`,
-              'Host': new URL(currentHost).hostname,
-              'Content-Type': 'application/json'
+              authorization: `Cloud-IDE-JWT ${authToken}`,
+              Host: new URL(currentHost).hostname,
+              "Content-Type": "application/json",
             },
-            timeout: API_TIMEOUT
+            timeout: API_TIMEOUT,
           }
         );
 
         return response.data;
-      }, '获取用户权益列表');
+      }, "获取用户权益列表");
 
       return result;
     } catch (error) {
@@ -337,19 +384,21 @@ export class ApiService {
    * @param authToken 认证Token
    * @returns Promise<{ start_time: number; end_time: number } | null>
    */
-  public async getSubscriptionTimeRange(authToken: string): Promise<{ start_time: number; end_time: number } | null> {
+  public async getSubscriptionTimeRange(
+    authToken: string
+  ): Promise<{ start_time: number; end_time: number } | null> {
     try {
       const result = await this.getUserEntitlementList(authToken);
-      
+
       if (result?.user_entitlement_pack_list?.length > 0) {
         const pack = result.user_entitlement_pack_list[0];
         return {
           start_time: pack.entitlement_base_info.start_time,
-          end_time: pack.entitlement_base_info.end_time
+          end_time: pack.entitlement_base_info.end_time,
         };
       }
-      
-      throw new Error('No entitlement pack found');
+
+      throw new Error("No entitlement pack found");
     } catch (error) {
       logWithTime(`获取订阅时间范围失败: ${error}`);
       return null;
@@ -380,12 +429,13 @@ export class ApiService {
           start_time,
           end_time,
           page_size: pageSize,
-          page_num: pageNum
+          page_num: pageNum,
+          usage_type: [5, 6], // 添加使用类型参数
         };
         const headers = {
-          'authorization': `Cloud-IDE-JWT ${authToken}`,
-          'Host': new URL(currentHost).hostname,
-          'Content-Type': 'application/json'
+          authorization: `Cloud-IDE-JWT ${authToken}`,
+          Host: new URL(currentHost).hostname,
+          "Content-Type": "application/json",
         };
 
         logWithTime(`请求第${pageNum}页使用详情数据: ${url}`);
@@ -395,9 +445,13 @@ export class ApiService {
           requestBody,
           {
             headers,
-            timeout: 10000
+            timeout: 10000,
           }
         );
+
+        // 调试：显示API返回的完整数据
+        logWithTime(`API返回数据: ${JSON.stringify(response.data)}`);
+        logWithTime(`请求参数: start_time=${start_time}, end_time=${end_time}, page_num=${pageNum}, page_size=${pageSize}`);
 
         return response.data;
       }, `获取第${pageNum}页使用详情`);

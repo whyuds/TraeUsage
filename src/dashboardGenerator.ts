@@ -1,9 +1,16 @@
-import * as vscode from 'vscode';
-import * as os from 'os';
-import { StoredUsageData, UsageDetailItem, UsageSummary, ModelStats, ModeStats, DailyStats } from './types';
-import { logWithTime, formatTimestamp } from './utils';
+import * as vscode from "vscode";
+import * as os from "os";
+import {
+  StoredUsageData,
+  UsageDetailItem,
+  UsageSummary,
+  ModelStats,
+  ModeStats,
+  DailyStats,
+} from "./types";
+import { logWithTime, formatTimestamp } from "./utils";
 
-const USAGE_DATA_FILE = 'usage_data.json';
+const USAGE_DATA_FILE = "usage_data.json";
 
 export class UsageDashboardGenerator {
   private context: vscode.ExtensionContext;
@@ -18,42 +25,53 @@ export class UsageDashboardGenerator {
       const rawData = await this.loadUsageData();
       if (!rawData || Object.keys(rawData.usage_details).length === 0) {
         const choice = await vscode.window.showWarningMessage(
-          'No usage data found, please collect data first',
-          'Collect Now'
+          "未找到使用数据，请先收集数据",
+          "立即收集"
         );
-        if (choice === 'Collect Now') {
-          vscode.commands.executeCommand('traeUsage.collectUsageDetails');
+        if (choice === "立即收集") {
+          vscode.commands.executeCommand("traeUsage.collectUsageDetails");
         }
         return;
       }
 
       await this.generateAndShowDashboard(rawData);
     } catch (error) {
-      logWithTime(`Failed to display dashboard: ${error}`);
-      vscode.window.showErrorMessage(`Dashboard error: ${error?.toString() || 'Unknown error'}`);
+      logWithTime(`显示看板失败: ${error}`);
+      vscode.window.showErrorMessage(
+        `看板错误: ${error?.toString() || "Unknown error"}`
+      );
     }
   }
 
   private async loadUsageData(): Promise<StoredUsageData | null> {
-    const dataPath = vscode.Uri.joinPath(this.context.globalStorageUri, USAGE_DATA_FILE);
-    
+    const dataPath = vscode.Uri.joinPath(
+      this.context.globalStorageUri,
+      USAGE_DATA_FILE
+    );
+
     try {
       const fileContent = await vscode.workspace.fs.readFile(dataPath);
       const jsonData = JSON.parse(fileContent.toString());
       return jsonData as StoredUsageData;
     } catch (error) {
-      logWithTime(`Failed to read usage data file: ${error}`);
+      logWithTime(`读取使用数据文件失败: ${error}`);
       return null;
     }
   }
 
-  private filterUsageDetails(usageDetails: UsageDetailItem[], startDate?: string, endDate?: string): UsageDetailItem[] {
+  private filterUsageDetails(
+    usageDetails: UsageDetailItem[],
+    startDate?: string,
+    endDate?: string
+  ): UsageDetailItem[] {
     if (!startDate && !endDate) {
       return usageDetails;
     }
 
-    return usageDetails.filter(item => {
-      const itemDate = new Date(item.usage_time * 1000).toISOString().split('T')[0];
+    return usageDetails.filter((item) => {
+      const itemDate = new Date(item.usage_time * 1000)
+        .toISOString()
+        .split("T")[0];
       if (startDate && itemDate < startDate) return false;
       if (endDate && itemDate > endDate) return false;
       return true;
@@ -67,10 +85,10 @@ export class UsageDashboardGenerator {
       total_sessions: usageDetails.length,
       model_stats: {},
       mode_stats: {},
-      daily_stats: {}
+      daily_stats: {},
     };
 
-    usageDetails.forEach(item => {
+    usageDetails.forEach((item) => {
       summary.total_amount += item.amount_float;
       summary.total_cost += item.cost_money_float;
 
@@ -84,7 +102,7 @@ export class UsageDashboardGenerator {
           input_tokens: 0,
           output_tokens: 0,
           cache_read_tokens: 0,
-          cache_write_tokens: 0
+          cache_write_tokens: 0,
         };
       }
       const modelStats = summary.model_stats[modelName];
@@ -97,7 +115,7 @@ export class UsageDashboardGenerator {
       modelStats.cache_write_tokens += item.extra_info.cache_write_token;
 
       // Mode statistics
-      const mode = item.use_max_mode ? 'Max' : 'Normal';
+      const mode = item.use_max_mode ? "Max" : "Normal";
       if (!summary.mode_stats[mode]) {
         summary.mode_stats[mode] = { count: 0, amount: 0, cost: 0 };
       }
@@ -106,9 +124,14 @@ export class UsageDashboardGenerator {
       summary.mode_stats[mode].cost += item.cost_money_float;
 
       // Daily statistics
-      const date = new Date(item.usage_time * 1000).toISOString().split('T')[0];
+      const date = new Date(item.usage_time * 1000).toISOString().split("T")[0];
       if (!summary.daily_stats[date]) {
-        summary.daily_stats[date] = { count: 0, amount: 0, cost: 0, models: [] };
+        summary.daily_stats[date] = {
+          count: 0,
+          amount: 0,
+          cost: 0,
+          models: [],
+        };
       }
       summary.daily_stats[date].count++;
       summary.daily_stats[date].amount += item.amount_float;
@@ -121,106 +144,151 @@ export class UsageDashboardGenerator {
     return summary;
   }
 
-  private async generateAndShowDashboard(rawData: StoredUsageData): Promise<void> {
+  private async generateAndShowDashboard(
+    rawData: StoredUsageData
+  ): Promise<void> {
     const allUsageDetails = Object.values(rawData.usage_details);
     const initialSummary = this.generateSummary(allUsageDetails);
-    
+
     if (this.panel) {
       this.panel.dispose();
     }
-    
+
     this.panel = vscode.window.createWebviewPanel(
-      'traeUsageDashboard',
-      'Trae Usage Statistics',
+      "traeUsageDashboard",
+      "Trae 使用统计看板",
       vscode.ViewColumn.One,
       {
         enableScripts: true,
-        retainContextWhenHidden: true
+        retainContextWhenHidden: true,
       }
     );
 
     // Listen for messages from webview
     this.panel.webview.onDidReceiveMessage(async (message) => {
       switch (message.command) {
-        case 'filter':
-          const filteredDetails = this.filterUsageDetails(allUsageDetails, message.startDate, message.endDate);
+        case "filter":
+          const filteredDetails = this.filterUsageDetails(
+            allUsageDetails,
+            message.startDate,
+            message.endDate
+          );
           const filteredSummary = this.generateSummary(filteredDetails);
-          
+
           this.panel?.webview.postMessage({
-            command: 'updateData',
+            command: "updateData",
             summary: filteredSummary,
-            details: filteredDetails
+            details: filteredDetails,
           });
           break;
-          
-        case 'export':
-          const exportDetails = this.filterUsageDetails(allUsageDetails, message.startDate, message.endDate);
-          await this.exportData(exportDetails, message.startDate, message.endDate);
+
+        case "export":
+          const exportDetails = this.filterUsageDetails(
+            allUsageDetails,
+            message.startDate,
+            message.endDate
+          );
+          await this.exportData(
+            exportDetails,
+            message.startDate,
+            message.endDate
+          );
           break;
       }
     });
 
-    this.panel.webview.html = this.generateDashboardHTML(rawData, initialSummary, allUsageDetails);
+    this.panel.webview.html = this.generateDashboardHTML(
+      rawData,
+      initialSummary,
+      allUsageDetails
+    );
   }
 
-  private async exportData(filteredDetails: UsageDetailItem[], startDate?: string, endDate?: string): Promise<void> {
+  private async exportData(
+    filteredDetails: UsageDetailItem[],
+    startDate?: string,
+    endDate?: string
+  ): Promise<void> {
     try {
       const csvContent = this.generateCSV(filteredDetails);
-      const dateRange = startDate && endDate ? `_${startDate}_to_${endDate}` : '';
-      const fileName = `trae_usage_export${dateRange}_${new Date().toISOString().split('T')[0]}.csv`;
-      
+      const dateRange =
+        startDate && endDate ? `_${startDate}_to_${endDate}` : "";
+      const fileName = `trae_usage_export${dateRange}_${
+        new Date().toISOString().split("T")[0]
+      }.csv`;
+
       const uri = await vscode.window.showSaveDialog({
         defaultUri: vscode.Uri.file(fileName),
         filters: {
-          'CSV Files': ['csv']
-        }
+          "CSV 文件": ["csv"],
+        },
       });
 
       if (uri) {
-        await vscode.workspace.fs.writeFile(uri, Buffer.from(csvContent, 'utf8'));
-        vscode.window.showInformationMessage(`Data exported to: ${uri.fsPath}`);
+        await vscode.workspace.fs.writeFile(
+          uri,
+          Buffer.from(csvContent, "utf8")
+        );
+        vscode.window.showInformationMessage(`数据已导出: ${uri.fsPath}`);
       }
     } catch (error) {
-      vscode.window.showErrorMessage(`Export failed: ${error}`);
+      vscode.window.showErrorMessage(`导出失败: ${error}`);
     }
   }
 
   private generateCSV(details: UsageDetailItem[]): string {
     const headers = [
-      'Time', 'Model', 'Mode', 'Usage', 'Cost', 'Input Tokens', 'Output Tokens', 'Cache Read Tokens', 'Cache Write Tokens', 'Session ID'
+      "Time",
+      "Model",
+      "Mode",
+      "Usage",
+      "Cost",
+      "Input Tokens",
+      "Output Tokens",
+      "Cache Read Tokens",
+      "Cache Write Tokens",
+      "Session ID",
     ];
-    
-    const rows = details.map(item => [
-      new Date((item.usage_time || 0) * 1000).toLocaleString('en-US'),
-      item.model_name || '',
-      item.use_max_mode ? 'Max' : 'Normal',
+
+    const rows = details.map((item) => [
+      new Date((item.usage_time || 0) * 1000).toLocaleString("en-US"),
+      item.model_name || "",
+      item.use_max_mode ? "Max" : "Normal",
       (item.amount_float || 0).toString(),
       (item.cost_money_float || 0).toString(),
       (item.extra_info?.input_token || 0).toString(),
       (item.extra_info?.output_token || 0).toString(),
       (item.extra_info?.cache_read_token || 0).toString(),
       (item.extra_info?.cache_write_token || 0).toString(),
-      item.session_id || ''
+      item.session_id || "",
     ]);
 
-    return [headers, ...rows].map(row => row.join(',')).join('\n');
+    return [headers, ...rows].map((row) => row.join(",")).join("\n");
   }
 
-  private generateDashboardHTML(rawData: StoredUsageData, summary: UsageSummary, allUsageDetails: UsageDetailItem[]): string {
-    const timeRange = `${formatTimestamp(rawData.start_time)} - ${formatTimestamp(rawData.end_time)}`;
-    
+  private generateDashboardHTML(
+    rawData: StoredUsageData,
+    summary: UsageSummary,
+    allUsageDetails: UsageDetailItem[]
+  ): string {
+    const timeRange = `${formatTimestamp(
+      rawData.start_time
+    )} - ${formatTimestamp(rawData.end_time)}`;
+
     // Get date range for filter
-    const dates = allUsageDetails.map(item => new Date(item.usage_time * 1000).toISOString().split('T')[0]);
-    const minDate = Math.min(...dates.map(d => new Date(d).getTime()));
-    const maxDate = Math.max(...dates.map(d => new Date(d).getTime()));
-    
+    const dates = allUsageDetails.map(
+      (item) => new Date(item.usage_time * 1000).toISOString().split("T")[0]
+    );
+    const minDate = Math.min(...dates.map((d) => new Date(d).getTime()));
+    const maxDate = Math.max(...dates.map((d) => new Date(d).getTime()));
+
     return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trae Usage Statistics</title>
+    <title>Trae 使用统计看板</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
@@ -359,21 +427,25 @@ export class UsageDashboardGenerator {
 </head>
 <body>
     <div class="controls">
-        <label>Start Date:</label>
-        <input type="date" id="startDate" value="${new Date(minDate).toISOString().split('T')[0]}">
-        <label>End Date:</label>
-        <input type="date" id="endDate" value="${new Date(maxDate).toISOString().split('T')[0]}">
-        <button onclick="applyFilter()">Filter</button>
-        <button onclick="resetFilter()">Reset</button>
+        <label>开始日期：</label>
+        <input type="date" id="startDate" value="${
+          new Date(minDate).toISOString().split("T")[0]
+        }">
+        <label>结束日期：</label>
+        <input type="date" id="endDate" value="${
+          new Date(maxDate).toISOString().split("T")[0]
+        }">
+        <button onclick="applyFilter()">筛选</button>
+        <button onclick="resetFilter()">重置</button>
         
         <!-- Quick Filter Buttons -->
         <div class="quick-filters">
-            <button onclick="filterLast1Day()">Last 1 Day</button>
-            <button onclick="filterLast7Days()">Last 7 Days</button>
-            <button onclick="filterLast30Days()">Last 30 Days</button>
+            <button onclick="filterLast1Day()">最近1天</button>
+            <button onclick="filterLast7Days()">最近7天</button>
+            <button onclick="filterLast30Days()">最近30天</button>
         </div>
 
-        <button onclick="exportData()">Export Detail</button>
+        <button onclick="exportData()">导出明细</button>
     </div>
 
     <div id="filterInfo" class="filter-info" style="display: none;">
@@ -385,31 +457,35 @@ export class UsageDashboardGenerator {
     </div>
 
     <div class="chart-section">
-        <h2>📈 Daily Usage Trend</h2>
+        <h2>📈 每日使用趋势</h2>
         <div class="chart-container">
             <canvas id="dailyTrendChart"></canvas>
         </div>
     </div>
 
     <div id="modelStats" class="chart-section">
-        <h2>📊 Model Usage Statistics</h2>
+        <h2>📊 模型使用统计</h2>
         ${this.generateModelStatsTable(summary)}
     </div>
 
     <div id="modeStats" class="chart-section">
-        <h2>⚡ Mode Usage Statistics</h2>
+        <h2>⚡ 模式使用统计</h2>
         ${this.generateModeStatsTable(summary)}
     </div>
 
     <div id="recentRequests" class="chart-section">
-        <h2>📋 Recent 100 Requests</h2>
+        <h2>📋 最近100次请求</h2>
         ${this.generateRecentRequestsTable(allUsageDetails)}
     </div>
 
     <div class="header">
-        <div class="time-range">Statistics Period: ${timeRange}</div>
-        <div class="time-range">Last Updated: ${new Date(rawData.last_update_time * 1000).toLocaleString('en-US')}</div>
-        <div class="time-range">Total Records: ${Object.keys(rawData.usage_details).length}</div>
+        <div class="time-range">统计周期：${timeRange}</div>
+        <div class="time-range">最后更新时间：${new Date(
+          rawData.last_update_time * 1000
+        ).toLocaleString("zh-CN")}</div>
+        <div class="time-range">总记录数：${
+          Object.keys(rawData.usage_details).length
+        }</div>
     </div>
 
     <script>
@@ -417,8 +493,12 @@ export class UsageDashboardGenerator {
         let currentSummary = ${JSON.stringify(summary)};
         let currentDetails = ${JSON.stringify(allUsageDetails)};
         let dailyChart;
-        const originalMinDate = '${new Date(minDate).toISOString().split('T')[0]}';
-        const originalMaxDate = '${new Date(maxDate).toISOString().split('T')[0]}';
+        const originalMinDate = '${
+          new Date(minDate).toISOString().split("T")[0]
+        }';
+        const originalMaxDate = '${
+          new Date(maxDate).toISOString().split("T")[0]
+        }';
 
         // Initialize chart
         function initDailyChart(summary) {
@@ -434,14 +514,14 @@ export class UsageDashboardGenerator {
                 data: {
                     labels: dailyData.map(([date]) => date),
                     datasets: [{
-                        label: 'Usage',
+                        label: '用量',
                         data: dailyData.map(([, stats]) => stats.amount),
                         borderColor: '#4ecdc4',
                         backgroundColor: 'rgba(78, 205, 196, 0.1)',
                         tension: 0.4,
                         fill: true
                     }, {
-                        label: 'Cost ($)',
+                        label: '费用(美元)',
                         data: dailyData.map(([, stats]) => stats.cost),
                         borderColor: '#ff6b6b',
                         backgroundColor: 'rgba(255, 107, 107, 0.1)',
@@ -465,7 +545,7 @@ export class UsageDashboardGenerator {
                             position: 'left',
                             title: {
                                 display: true,
-                                text: 'Usage'
+                                text: '用量'
                             }
                         },
                         y1: {
@@ -474,7 +554,7 @@ export class UsageDashboardGenerator {
                             position: 'right',
                             title: {
                                 display: true,
-                                text: 'Cost ($)'
+                                text: '费用(美元)'
                             },
                             grid: {
                                 drawOnChartArea: false,
@@ -545,7 +625,7 @@ export class UsageDashboardGenerator {
                 filterInfo.style.display = 'none';
             } else {
                 filterInfo.style.display = 'block';
-                filterText.textContent = \`Current Filter Range: \${startDate} to \${endDate}\`;
+                filterText.textContent = \`当前筛选范围：\${startDate} 至 \${endDate}\`;
             }
         }
 
@@ -577,9 +657,9 @@ export class UsageDashboardGenerator {
             document.getElementById('summaryCards').innerHTML = generateSummaryCards(summary);
             
             // Update statistics tables
-            document.getElementById('modelStats').innerHTML = '<h2>📊 Model Usage Statistics</h2>' + generateModelStatsTable(summary);
-            document.getElementById('modeStats').innerHTML = '<h2>⚡ Mode Usage Statistics</h2>' + generateModeStatsTable(summary);
-            document.getElementById('dailyStats').innerHTML = '<h2>📅 Daily Usage Statistics</h2>' + generateDailyStatsTable(summary);
+            document.getElementById('modelStats').innerHTML = '<h2>📊 模型使用统计</h2>' + generateModelStatsTable(summary);
+            document.getElementById('modeStats').innerHTML = '<h2>⚡ 模式使用统计</h2>' + generateModeStatsTable(summary);
+            document.getElementById('dailyStats').innerHTML = '<h2>📅 每日使用统计</h2>' + generateDailyStatsTable(summary);
             
             // Update chart
             initDailyChart(summary);
@@ -589,19 +669,19 @@ export class UsageDashboardGenerator {
         function generateSummaryCards(summary) {
             return \`
                 <div class="card">
-                    <h3>Total Usage</h3>
+                    <h3>总用量</h3>
                     <div class="value">\${(summary.total_amount || 0).toFixed(2)}</div>
                 </div>
                 <div class="card">
-                    <h3>Total Cost</h3>
+                    <h3>总费用</h3>
                     <div class="value">\${(summary.total_cost || 0).toFixed(2)}$</div>
                 </div>
                 <div class="card">
-                    <h3>Total Sessions</h3>
+                    <h3>会话数</h3>
                     <div class="value">\${summary.total_sessions}</div>
                 </div>
                 <div class="card">
-                    <h3>Model Types</h3>
+                    <h3>模型种类</h3>
                     <div class="value">\${Object.keys(summary.model_stats).length}</div>
                 </div>\`;
         }
@@ -626,14 +706,14 @@ export class UsageDashboardGenerator {
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>Model</th>
-                            <th>Usage Count</th>
-                            <th>Usage</th>
-                            <th>Cost</th>
-                            <th>Input Tokens</th>
-                            <th>Output Tokens</th>
-                            <th>Cache Read</th>
-                            <th>Cache Write</th>
+                            <th>模型</th>
+                            <th>次数</th>
+                            <th>用量</th>
+                            <th>费用</th>
+                            <th>输入Token</th>
+                            <th>输出Token</th>
+                            <th>缓存读取</th>
+                            <th>缓存写入</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -693,11 +773,11 @@ export class UsageDashboardGenerator {
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>Date</th>
-                            <th>Usage Count</th>
-                            <th>Usage</th>
-                            <th>Cost</th>
-                            <th>Models Used</th>
+                            <th>日期</th>
+                            <th>次数</th>
+                            <th>用量</th>
+                            <th>费用</th>
+                            <th>使用模型</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -751,8 +831,9 @@ export class UsageDashboardGenerator {
             </thead>
             <tbody>
                 ${Object.entries(summary.model_stats)
-                  .sort(([,a], [,b]) => b.amount - a.amount)
-                  .map(([model, stats]) => `
+                  .sort(([, a], [, b]) => b.amount - a.amount)
+                  .map(
+                    ([model, stats]) => `
                     <tr>
                         <td><strong>${model}</strong></td>
                         <td>${stats.count}</td>
@@ -763,7 +844,9 @@ export class UsageDashboardGenerator {
                         <td>${stats.cache_read_tokens.toLocaleString()}</td>
                         <td>${stats.cache_write_tokens.toLocaleString()}</td>
                     </tr>
-                `).join('')}
+                `
+                  )
+                  .join("")}
             </tbody>
         </table>`;
   }
@@ -773,19 +856,23 @@ export class UsageDashboardGenerator {
         <table class="table">
             <thead>
                 <tr>
-                    <th>Mode</th>
-                    <th>Usage Count</th>
-                    <th>Usage</th>
-                    <th>Cost</th>
-                    <th>Percentage</th>
+                    <th>模式</th>
+                    <th>次数</th>
+                    <th>用量</th>
+                    <th>费用</th>
+                    <th>占比</th>
                 </tr>
             </thead>
             <tbody>
                 ${Object.entries(summary.mode_stats)
-                  .sort(([,a], [,b]) => b.amount - a.amount)
+                  .sort(([, a], [, b]) => b.amount - a.amount)
                   .map(([mode, stats]) => {
-                    const percentage = ((stats.amount || 0) / (summary.total_amount || 1) * 100).toFixed(1);
-                    const modeClass = mode === 'Max' ? 'max-mode' : 'normal-mode';
+                    const percentage = (
+                      ((stats.amount || 0) / (summary.total_amount || 1)) *
+                      100
+                    ).toFixed(1);
+                    const modeClass =
+                      mode === "Max" ? "max-mode" : "normal-mode";
                     return `
                     <tr>
                         <td><span class="${modeClass}">${mode}</span></td>
@@ -795,12 +882,15 @@ export class UsageDashboardGenerator {
                         <td>${percentage}%</td>
                     </tr>
                 `;
-                  }).join('')}
+                  })
+                  .join("")}
             </tbody>
         </table>`;
   }
 
-  private generateRecentRequestsTable(allUsageDetails: UsageDetailItem[]): string {
+  private generateRecentRequestsTable(
+    allUsageDetails: UsageDetailItem[]
+  ): string {
     // 按时间倒序排序，取最近100条
     const recentRequests = allUsageDetails
       .sort((a, b) => b.usage_time - a.usage_time)
@@ -810,36 +900,45 @@ export class UsageDashboardGenerator {
         <table class="table recent-requests-table">
             <thead>
                 <tr>
-                    <th>Time</th>
-                    <th>Model</th>
-                    <th>Mode</th>
-                    <th>Input Tokens</th>
-                    <th>Output Tokens</th>
-                    <th>Cache Read</th>
-                    <th>Cache Write</th>
-                    <th>Usage</th>
-                    <th>Cost</th>
-                    <th>Session ID</th>
+                    <th>时间</th>
+                    <th>模型</th>
+                    <th>模式</th>
+                    <th>输入Token</th>
+                    <th>输出Token</th>
+                    <th>缓存读取</th>
+                    <th>缓存写入</th>
+                    <th>用量</th>
+                    <th>费用</th>
+                    <th>会话ID</th>
                 </tr>
             </thead>
             <tbody>
-                ${recentRequests.map(item => `
+                ${recentRequests
+                  .map(
+                    (item) => `
                     <tr>
-                        <td>${new Date(item.usage_time * 1000).toLocaleString()}</td>
+                        <td>${new Date(
+                          item.usage_time * 1000
+                        ).toLocaleString()}</td>
                         <td>${item.model_name}</td>
-                        <td><span class="${item.use_max_mode ? 'max-mode' : 'normal-mode'}">${item.use_max_mode ? 'Max' : 'Normal'}</span></td>
+                        <td><span class="${
+                          item.use_max_mode ? "max-mode" : "normal-mode"
+                        }">${item.use_max_mode ? "最大" : "普通"}</span></td>
                         <td>${item.extra_info.input_token.toLocaleString()}</td>
                         <td>${item.extra_info.output_token.toLocaleString()}</td>
                         <td>${item.extra_info.cache_read_token.toLocaleString()}</td>
                         <td>${item.extra_info.cache_write_token.toLocaleString()}</td>
                         <td>${item.amount_float.toFixed(2)}</td>
                         <td>$${item.cost_money_float.toFixed(4)}</td>
-                        <td class="session-id">${item.session_id.substring(0, 8)}...</td>
+                        <td class="session-id">${item.session_id.substring(
+                          0,
+                          8
+                        )}...</td>
                     </tr>
-                `).join('')}
+                `
+                  )
+                  .join("")}
             </tbody>
         </table>`;
   }
-
-
 }
